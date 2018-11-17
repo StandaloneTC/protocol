@@ -84,3 +84,19 @@ operator fun Packet<*>.plus(other: Packet<*>) =
             other is CombinedPacket -> CombinedPacket(other.id, *other.data, this, label = other.label)
             else                    -> CombinedPacket(id, this, other, label = label)
         }
+
+operator fun CombinedPacket.component1() = data[0]
+operator fun CombinedPacket.component2() = data[1]
+operator fun CombinedPacket.component3() = data[2]
+operator fun CombinedPacket.component4() = data[3]
+operator fun CombinedPacket.component5() = data[4]
+operator fun CombinedPacket.component6() = data[5]
+operator fun CombinedPacket.component7() = data[6]
+operator fun CombinedPacket.component8() = data[7]
+operator fun CombinedPacket.component9() = data[8]
+operator fun CombinedPacket.component10() = data[9]
+operator fun CombinedPacket.component11() = data[10]
+operator fun CombinedPacket.component12() = data[11]
+operator fun CombinedPacket.component13() = data[12]
+operator fun CombinedPacket.component14() = data[13]
+operator fun CombinedPacket.component15() = data[14]
