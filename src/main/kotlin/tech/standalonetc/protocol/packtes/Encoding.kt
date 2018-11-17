@@ -1,4 +1,4 @@
-package tech.standalonetc.protocol
+package tech.standalonetc.protocol.packtes
 
 fun Byte.encode() = byteArrayOf(this)
 
