@@ -7,7 +7,7 @@ import tech.standalonetc.protocol.packtes.*
 import java.io.Closeable
 import java.util.concurrent.Executors
 
-class NetworkClient(name: String, val onPacketReceive: (Packet<*>) -> Unit) : Closeable {
+class NetworkClient(name: String, private val onPacketReceive: Packet<*>.() -> Unit) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(3)
 
@@ -39,6 +39,7 @@ class NetworkClient(name: String, val onPacketReceive: (Packet<*>) -> Unit) : Cl
     }
 
     private inner class StandalonePlugin : RemotePlugin('X') {
+
         override fun onBroadcast(sender: String, payload: ByteArray) {
             val packet = payload.toPrimitivePacket()
             with(DevicePacket.Conversion) {
