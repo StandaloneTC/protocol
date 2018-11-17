@@ -1,5 +1,7 @@
 package tech.standalonetc.protocol.packtes
 
+import java.nio.ByteBuffer
+
 fun Byte.encode() = byteArrayOf(this)
 
 fun String.encode() =
@@ -21,3 +23,13 @@ fun decodeToString(byteArray: ByteArray) =
 
 
 fun Double.encodeZigZag() = toBits().encodeZigZag()
+
+
+fun Long.encode(): ByteArray = ByteBuffer.allocate(8).putLong(this).array()
+fun ByteArray.decodeToLong() = ByteBuffer.wrap(this).long
+
+fun Double.encode() = toBits().encode()
+fun ByteArray.decodeToDouble() = Double.fromBits(decodeToLong())
+
+fun Int.encode(): ByteArray = ByteBuffer.allocate(4).putInt(this).array()
+fun ByteArray.decodeToInt() = ByteBuffer.wrap(this).int
