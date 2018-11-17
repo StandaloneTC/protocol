@@ -1,7 +1,19 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+
+    dependencies {
+        classpath("org.jetbrains.dokka:dokka-gradle-plugin")
+    }
+}
+
 plugins {
     kotlin("jvm") version "1.3.10"
+    id("org.jetbrains.dokka") version "0.9.17"
 }
 
 group = "tech.standalonetc"
