@@ -1,23 +1,44 @@
 package tech.standalonetc.protocol.packtes
 
+/**
+ * Device packet protocol
+ */
 object DevicePacket {
 
+    /**
+     * Pwm enable of continuous servo and normal servo
+     */
     class PwmEnablePacket(id: Byte, enable: Boolean)
         : BooleanPacket(id, enable, Label.PwmEnablePacket)
 
+    /**
+     * Power of continuous servo
+     */
     class ContinuousServoPowerPacket(id: Byte, power: Double)
         : DoublePacket(id, power, Label.ContinuousServoPowerPacket)
 
+    /**
+     * Encoder data
+     */
     class EncoderDataPacket(id: Byte, position: Double, speed: Double)
         : CombinedPacket(id, DoublePacket(id, position), DoublePacket(id, speed),
             label = Label.EncoderDataPacket)
 
+    /**
+     * Power of continuous motor
+     */
     class MotorPowerPacket(id: Byte, power: Double)
         : DoublePacket(id, power, Label.MotorPowerPacket)
 
+    /**
+     * Position of servo
+     */
     class ServoPositionPacket(id: Byte, degree: Int)
         : IntPacket(id, degree, Label.ServoPositionPacket)
 
+    /**
+     * Reset a encoder
+     */
     class EncoderResetPacket(id: Byte) : BytePacket(id, 8, Label.EncoderResetPacket)
 
     object Label {

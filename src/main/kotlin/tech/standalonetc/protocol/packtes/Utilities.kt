@@ -3,6 +3,9 @@ package tech.standalonetc.protocol.packtes
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 
+/**
+ * Encode a packet as a [ByteArray]
+ */
 fun Packet<*>.toByteArray(): ByteArray =
         when (this) {
             is BytePacket      -> encodePacket(type, id, label, data.encode())
@@ -54,6 +57,9 @@ private fun decodePacket(
     }
 }
 
+/**
+ * Decode a [ByteArray] into a primitive [Packet]
+ */
 fun ByteArray.toPrimitivePacket(): Packet<*> {
     val buffer = ByteArrayInputStream(this)
     val type = buffer.read().toByte()
@@ -71,6 +77,10 @@ private fun encodePacket(type: Byte, id: Byte, label: Byte, data: ByteArray) =
             set(2, label)
         }
 
+/**
+ * Flatten a [CombinedPacket]
+ * get all its child packets
+ */
 fun CombinedPacket.flatten(): List<Packet<*>> =
         data.flatMap {
             if (it is CombinedPacket)
@@ -78,6 +88,9 @@ fun CombinedPacket.flatten(): List<Packet<*>> =
             else listOf(it)
         }
 
+/**
+ * Composite two packets
+ */
 operator fun Packet<*>.plus(other: Packet<*>) =
         when {
             this is CombinedPacket  -> CombinedPacket(id, *data, other, label = label)
@@ -85,18 +98,77 @@ operator fun Packet<*>.plus(other: Packet<*>) =
             else                    -> CombinedPacket(id, this, other, label = label)
         }
 
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component1() = data[0]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component2() = data[1]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component3() = data[2]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component4() = data[3]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component5() = data[4]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component6() = data[5]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component7() = data[6]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component8() = data[7]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component9() = data[8]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component10() = data[9]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component11() = data[10]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component12() = data[11]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component13() = data[12]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component14() = data[13]
+
+/**
+ * Deconstruction support
+ */
 operator fun CombinedPacket.component15() = data[14]

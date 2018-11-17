@@ -7,6 +7,10 @@ import tech.standalonetc.protocol.packtes.*
 import java.io.Closeable
 import java.util.concurrent.Executors
 
+/**
+ * A wrapper of [org.mechdancer.remote.core.RemoteHub]
+ * Provides scheduling possibilities.
+ */
 class NetworkClient(name: String, private val onPacketReceive: Packet<*>.() -> Unit) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(3)
@@ -28,6 +32,9 @@ class NetworkClient(name: String, private val onPacketReceive: Packet<*>.() -> U
         }
     }
 
+    /**
+     * broadcast a packet
+     */
     fun broadcastPacket(packet: Packet<*>) {
         worker.submit { remoteHub.broadcastBy<StandalonePlugin>(packet.toByteArray()) }
     }
