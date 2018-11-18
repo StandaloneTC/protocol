@@ -6,7 +6,7 @@ import tech.standalonetc.protocol.packtes.DevicePacket
 object A {
     @JvmStatic
     fun main(args: Array<String>) {
-        val a = NetworkClient("A") {
+        val a = NetworkClient("A", "B") {
             when (this) {
                 is DevicePacket.MotorPowerPacket -> println("power: $data")
                 is DevicePacket.PwmEnablePacket  -> println("pwm enable: $data")
@@ -23,7 +23,7 @@ object A {
 object B {
     @JvmStatic
     fun main(args: Array<String>) {
-        val b = NetworkClient("B") {
+        val b = NetworkClient("B", "A") {
             when (this) {
                 is DevicePacket.MotorPowerPacket -> println("power: $data")
                 is DevicePacket.PwmEnablePacket  -> println("pwm enable: $data")

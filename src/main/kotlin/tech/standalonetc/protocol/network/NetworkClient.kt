@@ -6,12 +6,13 @@ import org.mechdancer.remote.core.broadcastBy
 import tech.standalonetc.protocol.packtes.*
 import java.io.Closeable
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
 
 /**
  * A wrapper of [org.mechdancer.remote.core.RemoteHub]
  * Provides scheduling possibilities.
  */
-class NetworkClient(name: String, private val onPacketReceive: Packet<*>.() -> Unit) : Closeable {
+class NetworkClient(name: String, private val oppositeName: String, private val onPacketReceive: Packet<*>.() -> Unit) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(3)
 
@@ -20,6 +21,8 @@ class NetworkClient(name: String, private val onPacketReceive: Packet<*>.() -> U
     private val remoteHub = remoteHub(name) {
         plugins setup plugin
     }
+
+    private val broadcastQueue = LinkedBlockingQueue<ByteArray>()
 
     init {
         worker.submit {
@@ -30,13 +33,17 @@ class NetworkClient(name: String, private val onPacketReceive: Packet<*>.() -> U
             while (true)
                 remoteHub.listen()
         }
+        worker.submit {
+            while (true)
+                remoteHub.broadcastBy<StandalonePlugin>(broadcastQueue.take())
+        }
     }
 
     /**
      * broadcast a packet
      */
     fun broadcastPacket(packet: Packet<*>) {
-        worker.submit { remoteHub.broadcastBy<StandalonePlugin>(packet.toByteArray()) }
+        broadcastQueue.offer(packet.toByteArray())
     }
 
 
@@ -48,6 +55,7 @@ class NetworkClient(name: String, private val onPacketReceive: Packet<*>.() -> U
     private inner class StandalonePlugin : RemotePlugin('X') {
 
         override fun onBroadcast(sender: String, payload: ByteArray) {
+            if (sender != oppositeName) return
             val packet = payload.toPrimitivePacket()
             with(DevicePacket.Conversion) {
                 packet.run {
@@ -62,7 +70,7 @@ class NetworkClient(name: String, private val onPacketReceive: Packet<*>.() -> U
                             ServoPositionPacket()
 
                         is CombinedPacket ->
-                            EncoderDataPacket()
+                            EncoderDataPacket() ?: GamepadDataPacket()
 
                         is BytePacket     ->
                             EncoderResetPacket()

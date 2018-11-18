@@ -23,4 +23,29 @@ class TestPacket {
         Assert.assertEquals(8331.233, a2.data)
         Assert.assertEquals(233.8331, b2.data)
     }
+
+    @Test
+    fun testGamepad() {
+        val a = DevicePacket.GamepadDataPacket(
+                10,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                true,
+                true,
+                false,
+                true,
+                .7,
+                .5,
+                .3,
+                .2
+        )
+        val encoded = a.toByteArray()
+        val a1 = encoded.toPrimitivePacket() as CombinedPacket
+        val (_, _, _, _, trigger) = a1
+        Assert.assertEquals(.3, (trigger as CombinedPacket).data[0].data)
+    }
 }
