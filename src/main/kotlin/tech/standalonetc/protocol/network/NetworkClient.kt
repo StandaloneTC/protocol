@@ -63,13 +63,10 @@ class NetworkClient(name: String, private val oppositeName: String,
                 packet.run {
                     when (this) {
                         is DoublePacket   ->
-                            MotorPowerPacket() ?: ContinuousServoPowerPacket() ?: VoltageDataPacket()
+                            MotorPowerPacket() ?: ContinuousServoPowerPacket() ?: VoltageDataPacket() ?: ServoPositionPacket()
 
                         is BooleanPacket  ->
                             PwmEnablePacket()
-
-                        is IntPacket      ->
-                            ServoPositionPacket()
 
                         is CombinedPacket ->
                             EncoderDataPacket() ?: GamepadDataPacket() ?: DeviceDescriptionPacket()

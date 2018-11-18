@@ -3,13 +3,14 @@ package tech.standalonetc.protocol.packtes
 /**
  * Device packet protocol
  */
-@Suppress("FunctionName")
+@Suppress("FunctionName", "MemberVisibilityCanBePrivate", "CanBeParameter")
 object DevicePacket {
+
     /**
      * Device description
      * To let slave know what device we should use.
      */
-    class DeviceDescriptionPacket(deviceId: Byte, deviceName: String)
+    class DeviceDescriptionPacket(val deviceId: Byte, val deviceName: String)
         : CombinedPacket(
             BuiltinId.DeviceDescriptionPacket,
             BytePacket(BuiltinId.DeviceDescriptionPacket, deviceId),
@@ -19,35 +20,35 @@ object DevicePacket {
     /**
      * Pwm enable of continuous servo and normal servo
      */
-    class PwmEnablePacket(id: Byte, enable: Boolean)
+    class PwmEnablePacket(id: Byte, val enable: Boolean)
         : BooleanPacket(id, enable, Label.PwmEnablePacket)
 
     /**
      * Power of continuous servo
      */
-    class ContinuousServoPowerPacket(id: Byte, power: Double)
+    class ContinuousServoPowerPacket(id: Byte, val power: Double)
         : DoublePacket(id, power, Label.ContinuousServoPowerPacket)
 
     /**
      * Encoder data
      */
-    class EncoderDataPacket(id: Byte, position: Double, speed: Double)
+    class EncoderDataPacket(id: Byte, val position: Int, speed: Double)
         : CombinedPacket(id,
-            DoublePacket(id, position),
+            IntPacket(id, position),
             DoublePacket(id, speed),
             label = Label.EncoderDataPacket)
 
     /**
      * Power of continuous motor
      */
-    class MotorPowerPacket(id: Byte, power: Double)
+    class MotorPowerPacket(id: Byte, val power: Double)
         : DoublePacket(id, power, Label.MotorPowerPacket)
 
     /**
      * Position of servo
      */
-    class ServoPositionPacket(id: Byte, degree: Int)
-        : IntPacket(id, degree, Label.ServoPositionPacket)
+    class ServoPositionPacket(id: Byte, val degree: Double)
+        : DoublePacket(id, degree, Label.ServoPositionPacket)
 
     /**
      * Reset a encoder
@@ -59,20 +60,20 @@ object DevicePacket {
      */
     sealed class GamepadDataPacket(
             id: Byte,
-            leftBumper: Boolean,
-            rightBumper: Boolean,
-            aButton: Boolean,
-            bButton: Boolean,
-            xButton: Boolean,
-            yButton: Boolean,
-            upButton: Boolean,
-            downButton: Boolean,
-            leftButton: Boolean,
-            rightButton: Boolean,
-            leftStick: Double,
-            rightStick: Double,
-            leftTrigger: Double,
-            rightTrigger: Double
+            val leftBumper: Boolean,
+            val rightBumper: Boolean,
+            val aButton: Boolean,
+            val bButton: Boolean,
+            val xButton: Boolean,
+            val yButton: Boolean,
+            val upButton: Boolean,
+            val downButton: Boolean,
+            val leftButton: Boolean,
+            val rightButton: Boolean,
+            val leftStick: Double,
+            val rightStick: Double,
+            val leftTrigger: Double,
+            val rightTrigger: Double
     ) : CombinedPacket(
             id,
             //front part
@@ -167,14 +168,14 @@ object DevicePacket {
     /**
      * Voltage of robot
      */
-    class VoltageDataPacket(voltage: Double)
+    class VoltageDataPacket(val voltage: Double)
         : DoublePacket(BuiltinId.Voltage, voltage, Label.VoltageDataPacket)
 
     /**
      * Telemetry data
      */
-    class TelemetryDataPacket(caption: String, data: String)
-        : StringPacket(BuiltinId.Telemetry, "$caption\$\$$data", Label.TelemetryDataPacket)
+    class TelemetryDataPacket(val caption: String, val string: String)
+        : StringPacket(BuiltinId.Telemetry, "$caption\$\$$string", Label.TelemetryDataPacket)
 
     internal object Label {
         const val PwmEnablePacket: Byte = 0
@@ -223,7 +224,7 @@ object DevicePacket {
          */
         fun CombinedPacket.EncoderDataPacket() =
                 takeIf { label == Label.EncoderDataPacket }
-                        ?.run { EncoderDataPacket(id, data[0].data as Double, data[1].data as Double) }
+                        ?.run { EncoderDataPacket(id, data[0].data as Int, data[1].data as Double) }
 
         /**
          * Try converting [DoublePacket] into [MotorPowerPacket]
@@ -234,7 +235,7 @@ object DevicePacket {
         /**
          * Try converting [IntPacket] into [ServoPositionPacket]
          */
-        fun IntPacket.ServoPositionPacket() =
+        fun DoublePacket.ServoPositionPacket() =
                 takeIf { label == Label.ServoPositionPacket }?.run { ServoPositionPacket(id, data) }
 
         /**
