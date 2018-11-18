@@ -12,7 +12,9 @@ import java.util.concurrent.LinkedBlockingQueue
  * A wrapper of [org.mechdancer.remote.core.RemoteHub]
  * Provides scheduling possibilities.
  */
-class NetworkClient(name: String, private val oppositeName: String, private val onPacketReceive: Packet<*>.() -> Unit) : Closeable {
+class NetworkClient(name: String, private val oppositeName: String,
+                    private val onPacketReceive: Packet<*>.() -> Unit,
+                    private val rawPacketReceive: Packet<*>.() -> Unit) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(3)
 
@@ -61,7 +63,7 @@ class NetworkClient(name: String, private val oppositeName: String, private val 
                 packet.run {
                     when (this) {
                         is DoublePacket   ->
-                            MotorPowerPacket() ?: ContinuousServoPowerPacket()
+                            MotorPowerPacket() ?: ContinuousServoPowerPacket() ?: VoltageDataPacket()
 
                         is BooleanPacket  ->
                             PwmEnablePacket()
@@ -70,12 +72,18 @@ class NetworkClient(name: String, private val oppositeName: String, private val 
                             ServoPositionPacket()
 
                         is CombinedPacket ->
-                            EncoderDataPacket() ?: GamepadDataPacket()
+                            EncoderDataPacket() ?: GamepadDataPacket() ?: DeviceDescriptionPacket()
 
                         is BytePacket     ->
                             EncoderResetPacket()
 
-                        else              -> null
+                        is StringPacket   ->
+                            TelemetryDataPacket()
+
+                        else              -> {
+                            rawPacketReceive(this)
+                            null
+                        }
                     }
                 }?.let { onPacketReceive(it) }
             }

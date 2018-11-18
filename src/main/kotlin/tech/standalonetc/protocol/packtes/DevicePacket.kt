@@ -3,7 +3,18 @@ package tech.standalonetc.protocol.packtes
 /**
  * Device packet protocol
  */
+@Suppress("FunctionName")
 object DevicePacket {
+    /**
+     * Device description
+     * To let slave know what device we should use.
+     */
+    class DeviceDescriptionPacket(deviceId: Byte, deviceName: String)
+        : CombinedPacket(
+            BuiltinId.DeviceDescriptionPacket,
+            BytePacket(BuiltinId.DeviceDescriptionPacket, deviceId),
+            StringPacket(BuiltinId.DeviceDescriptionPacket, deviceName),
+            label = Label.DeviceDescriptionPacket)
 
     /**
      * Pwm enable of continuous servo and normal servo
@@ -21,7 +32,9 @@ object DevicePacket {
      * Encoder data
      */
     class EncoderDataPacket(id: Byte, position: Double, speed: Double)
-        : CombinedPacket(id, DoublePacket(id, position), DoublePacket(id, speed),
+        : CombinedPacket(id,
+            DoublePacket(id, position),
+            DoublePacket(id, speed),
             label = Label.EncoderDataPacket)
 
     /**
@@ -44,7 +57,7 @@ object DevicePacket {
     /**
      * Gamepad packet
      */
-    class GamepadDataPacket(
+    sealed class GamepadDataPacket(
             id: Byte,
             leftBumper: Boolean,
             rightBumper: Boolean,
@@ -81,9 +94,89 @@ object DevicePacket {
             //trigger part
             DoublePacket(id, leftTrigger) + DoublePacket(id, rightTrigger),
             label = Label.GamepadDataPacket
-    )
+    ) {
+        /**
+         * Master gamepad data
+         */
+        class Master(
+                leftBumper: Boolean,
+                rightBumper: Boolean,
+                aButton: Boolean,
+                bButton: Boolean,
+                xButton: Boolean,
+                yButton: Boolean,
+                upButton: Boolean,
+                downButton: Boolean,
+                leftButton: Boolean,
+                rightButton: Boolean,
+                leftStick: Double,
+                rightStick: Double,
+                leftTrigger: Double,
+                rightTrigger: Double
+        ) : GamepadDataPacket(125,
+                leftBumper,
+                rightBumper,
+                aButton,
+                bButton,
+                xButton,
+                yButton,
+                upButton,
+                downButton,
+                leftButton,
+                rightButton,
+                leftStick,
+                rightStick,
+                leftTrigger,
+                rightTrigger)
 
-    object Label {
+        /**
+         * Helper gamepad data
+         */
+        class Helper(
+                leftBumper: Boolean,
+                rightBumper: Boolean,
+                aButton: Boolean,
+                bButton: Boolean,
+                xButton: Boolean,
+                yButton: Boolean,
+                upButton: Boolean,
+                downButton: Boolean,
+                leftButton: Boolean,
+                rightButton: Boolean,
+                leftStick: Double,
+                rightStick: Double,
+                leftTrigger: Double,
+                rightTrigger: Double
+        ) : GamepadDataPacket(124,
+                leftBumper,
+                rightBumper,
+                aButton,
+                bButton,
+                xButton,
+                yButton,
+                upButton,
+                downButton,
+                leftButton,
+                rightButton,
+                leftStick,
+                rightStick,
+                leftTrigger,
+                rightTrigger)
+    }
+
+    /**
+     * Voltage of robot
+     */
+    class VoltageDataPacket(voltage: Double)
+        : DoublePacket(BuiltinId.Voltage, voltage, Label.VoltageDataPacket)
+
+    /**
+     * Telemetry data
+     */
+    class TelemetryDataPacket(caption: String, data: String)
+        : StringPacket(BuiltinId.Telemetry, "$caption\$\$$data", Label.TelemetryDataPacket)
+
+    internal object Label {
         const val PwmEnablePacket: Byte = 0
         const val ContinuousServoPowerPacket: Byte = 1
         const val EncoderDataPacket: Byte = 2
@@ -91,6 +184,21 @@ object DevicePacket {
         const val ServoPositionPacket: Byte = 4
         const val EncoderResetPacket: Byte = 5
         const val GamepadDataPacket: Byte = 6
+        const val VoltageDataPacket: Byte = 7
+        const val TelemetryDataPacket: Byte = 8
+        const val DeviceDescriptionPacket: Byte = 9
+    }
+
+    /**
+     * Built-in id
+     * unrelated to device.
+     */
+    object BuiltinId {
+        const val Voltage: Byte = 126
+        const val GamepadMaster: Byte = 125
+        const val GamepadHelper: Byte = 124
+        const val Telemetry: Byte = 123
+        const val DeviceDescriptionPacket: Byte = 122
     }
 
     /**
@@ -146,24 +254,60 @@ object DevicePacket {
                     val (up, down, left, right) = direction as CombinedPacket
                     val (leftStick, rightStick) = stick as CombinedPacket
                     val (leftTrigger, rightTrigger) = trigger as CombinedPacket
-                    GamepadDataPacket(
-                            id,
-                            leftBumper.data as Boolean,
-                            rightBumper.data as Boolean,
-                            a.data as Boolean,
-                            b.data as Boolean,
-                            x.data as Boolean,
-                            y.data as Boolean,
-                            up.data as Boolean,
-                            down.data as Boolean,
-                            left.data as Boolean,
-                            right.data as Boolean,
-                            leftStick.data as Double,
-                            rightStick.data as Double,
-                            leftTrigger.data as Double,
-                            rightTrigger.data as Double
-                    )
+                    when (id) {
+                        BuiltinId.GamepadMaster -> GamepadDataPacket.Master(
+                                leftBumper.data as Boolean,
+                                rightBumper.data as Boolean,
+                                a.data as Boolean,
+                                b.data as Boolean,
+                                x.data as Boolean,
+                                y.data as Boolean,
+                                up.data as Boolean,
+                                down.data as Boolean,
+                                left.data as Boolean,
+                                right.data as Boolean,
+                                leftStick.data as Double,
+                                rightStick.data as Double,
+                                leftTrigger.data as Double,
+                                rightTrigger.data as Double
+                        )
+                        BuiltinId.GamepadHelper -> GamepadDataPacket.Helper(
+                                leftBumper.data as Boolean,
+                                rightBumper.data as Boolean,
+                                a.data as Boolean,
+                                b.data as Boolean,
+                                x.data as Boolean,
+                                y.data as Boolean,
+                                up.data as Boolean,
+                                down.data as Boolean,
+                                left.data as Boolean,
+                                right.data as Boolean,
+                                leftStick.data as Double,
+                                rightStick.data as Double,
+                                leftTrigger.data as Double,
+                                rightTrigger.data as Double
+                        )
+                        else                    -> null
+                    }
                 }
 
+        /**
+         * Try converting [DoublePacket] into [VoltageDataPacket]
+         */
+        fun DoublePacket.VoltageDataPacket() =
+                takeIf { label == Label.VoltageDataPacket }?.run { VoltageDataPacket(data) }
+
+        /**
+         * Try converting [StringPacket] into [TelemetryDataPacket]
+         */
+        fun StringPacket.TelemetryDataPacket() =
+                takeIf { label == Label.TelemetryDataPacket }?.run {
+                    val (caption, string) = data.split("\$\$")
+                    TelemetryDataPacket(caption, string)
+                }
+
+        fun CombinedPacket.DeviceDescriptionPacket() =
+                takeIf { label == Label.DeviceDescriptionPacket }
+                        ?.run { DeviceDescriptionPacket(data[0].data as Byte, data[1].data as String) }
     }
 }
