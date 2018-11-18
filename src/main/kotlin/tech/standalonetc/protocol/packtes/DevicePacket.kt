@@ -93,27 +93,51 @@ object DevicePacket {
         const val GamepadDataPacket: Byte = 6
     }
 
+    /**
+     * Wrap primitive [Packet] to DevicePacket
+     */
     object Conversion {
 
+        /**
+         * Try converting [BooleanPacket] into [PwmEnablePacket]
+         */
         fun BooleanPacket.PwmEnablePacket() =
                 takeIf { label == Label.PwmEnablePacket }?.run { PwmEnablePacket(id, data) }
 
+        /**
+         * Try converting [DoublePacket ] into [ContinuousServoPowerPacket]
+         */
         fun DoublePacket.ContinuousServoPowerPacket() =
                 takeIf { label == Label.ContinuousServoPowerPacket }?.run { ContinuousServoPowerPacket(id, data) }
 
+        /**
+         * Try converting [CombinedPacket] into [EncoderDataPacket]
+         */
         fun CombinedPacket.EncoderDataPacket() =
                 takeIf { label == Label.EncoderDataPacket }
                         ?.run { EncoderDataPacket(id, data[0].data as Double, data[1].data as Double) }
 
+        /**
+         * Try converting [DoublePacket] into [MotorPowerPacket]
+         */
         fun DoublePacket.MotorPowerPacket() =
                 takeIf { label == Label.MotorPowerPacket }?.run { MotorPowerPacket(id, data) }
 
+        /**
+         * Try converting [IntPacket] into [ServoPositionPacket]
+         */
         fun IntPacket.ServoPositionPacket() =
                 takeIf { label == Label.ServoPositionPacket }?.run { ServoPositionPacket(id, data) }
 
+        /**
+         * Try converting [BytePacket] into [EncoderResetPacket]
+         */
         fun BytePacket.EncoderResetPacket() =
                 takeIf { label == Label.EncoderResetPacket }?.run { EncoderResetPacket(id) }
 
+        /**
+         * Try converting [CombinedPacket] into [GamepadDataPacket]
+         */
         fun CombinedPacket.GamepadDataPacket() =
                 takeIf { label == Label.GamepadDataPacket }?.run {
                     val (front, button, direction, stick, trigger) = this
