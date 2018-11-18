@@ -53,12 +53,12 @@ object DevicePacket {
     /**
      * Reset a encoder
      */
-    class EncoderResetPacket(id: Byte) : BytePacket(id, 8, Label.EncoderResetPacket)
+    class EncoderResetPacket(id: Byte) : BytePacket(id, 0, Label.EncoderResetPacket)
 
     /**
      * Gamepad packet
      */
-    sealed class GamepadDataPacket(
+    class GamepadDataPacket(
             id: Byte,
             val leftBumper: Boolean,
             val rightBumper: Boolean,
@@ -70,8 +70,12 @@ object DevicePacket {
             val downButton: Boolean,
             val leftButton: Boolean,
             val rightButton: Boolean,
-            val leftStick: Double,
-            val rightStick: Double,
+            val leftStickX: Double,
+            val leftStickY: Double,
+            val leftStickButton: Boolean,
+            val rightStickX: Double,
+            val rightStickY: Double,
+            val rightStickButton: Boolean,
             val leftTrigger: Double,
             val rightTrigger: Double
     ) : CombinedPacket(
@@ -90,80 +94,20 @@ object DevicePacket {
                     BooleanPacket(id, downButton),
                     BooleanPacket(id, leftButton),
                     BooleanPacket(id, rightButton)),
-            //stick part
-            DoublePacket(id, leftStick) + DoublePacket(id, rightStick),
+            //left stick part
+            CombinedPacket(id,
+                    DoublePacket(id, leftStickX),
+                    DoublePacket(id, leftStickY),
+                    BooleanPacket(id, leftStickButton)),
+            //right stick part
+            CombinedPacket(id,
+                    DoublePacket(id, rightStickX),
+                    DoublePacket(id, rightStickY),
+                    BooleanPacket(id, rightStickButton)),
             //trigger part
             DoublePacket(id, leftTrigger) + DoublePacket(id, rightTrigger),
             label = Label.GamepadDataPacket
-    ) {
-        /**
-         * Master gamepad data
-         */
-        class Master(
-                leftBumper: Boolean,
-                rightBumper: Boolean,
-                aButton: Boolean,
-                bButton: Boolean,
-                xButton: Boolean,
-                yButton: Boolean,
-                upButton: Boolean,
-                downButton: Boolean,
-                leftButton: Boolean,
-                rightButton: Boolean,
-                leftStick: Double,
-                rightStick: Double,
-                leftTrigger: Double,
-                rightTrigger: Double
-        ) : GamepadDataPacket(125,
-                leftBumper,
-                rightBumper,
-                aButton,
-                bButton,
-                xButton,
-                yButton,
-                upButton,
-                downButton,
-                leftButton,
-                rightButton,
-                leftStick,
-                rightStick,
-                leftTrigger,
-                rightTrigger)
-
-        /**
-         * Helper gamepad data
-         */
-        class Helper(
-                leftBumper: Boolean,
-                rightBumper: Boolean,
-                aButton: Boolean,
-                bButton: Boolean,
-                xButton: Boolean,
-                yButton: Boolean,
-                upButton: Boolean,
-                downButton: Boolean,
-                leftButton: Boolean,
-                rightButton: Boolean,
-                leftStick: Double,
-                rightStick: Double,
-                leftTrigger: Double,
-                rightTrigger: Double
-        ) : GamepadDataPacket(124,
-                leftBumper,
-                rightBumper,
-                aButton,
-                bButton,
-                xButton,
-                yButton,
-                upButton,
-                downButton,
-                leftButton,
-                rightButton,
-                leftStick,
-                rightStick,
-                leftTrigger,
-                rightTrigger)
-    }
+    )
 
     /**
      * Voltage of robot
@@ -208,6 +152,11 @@ object DevicePacket {
     object Conversion {
 
         /**
+         * Cast a packet data into [T]
+         */
+        inline fun <reified T> Packet<*>.castData() = data as T
+
+        /**
          * Try converting [BooleanPacket] into [PwmEnablePacket]
          */
         fun BooleanPacket.PwmEnablePacket() =
@@ -224,7 +173,7 @@ object DevicePacket {
          */
         fun CombinedPacket.EncoderDataPacket() =
                 takeIf { label == Label.EncoderDataPacket }
-                        ?.run { EncoderDataPacket(id, data[0].data as Int, data[1].data as Double) }
+                        ?.run { EncoderDataPacket(id, data[0].castData() as Int, data[1].castData()) }
 
         /**
          * Try converting [DoublePacket] into [MotorPowerPacket]
@@ -249,47 +198,34 @@ object DevicePacket {
          */
         fun CombinedPacket.GamepadDataPacket() =
                 takeIf { label == Label.GamepadDataPacket }?.run {
-                    val (front, button, direction, stick, trigger) = this
+                    val (front, button, direction, leftStick, rightStick, trigger) = this
                     val (leftBumper, rightBumper) = front as CombinedPacket
                     val (a, b, x, y) = button as CombinedPacket
                     val (up, down, left, right) = direction as CombinedPacket
-                    val (leftStick, rightStick) = stick as CombinedPacket
+                    val (leftStickX, leftStickY, leftStickButton) = leftStick as CombinedPacket
+                    val (rightStickX, rightStickY, rightStickButton) = rightStick as CombinedPacket
                     val (leftTrigger, rightTrigger) = trigger as CombinedPacket
-                    when (id) {
-                        BuiltinId.GamepadMaster -> GamepadDataPacket.Master(
-                                leftBumper.data as Boolean,
-                                rightBumper.data as Boolean,
-                                a.data as Boolean,
-                                b.data as Boolean,
-                                x.data as Boolean,
-                                y.data as Boolean,
-                                up.data as Boolean,
-                                down.data as Boolean,
-                                left.data as Boolean,
-                                right.data as Boolean,
-                                leftStick.data as Double,
-                                rightStick.data as Double,
-                                leftTrigger.data as Double,
-                                rightTrigger.data as Double
-                        )
-                        BuiltinId.GamepadHelper -> GamepadDataPacket.Helper(
-                                leftBumper.data as Boolean,
-                                rightBumper.data as Boolean,
-                                a.data as Boolean,
-                                b.data as Boolean,
-                                x.data as Boolean,
-                                y.data as Boolean,
-                                up.data as Boolean,
-                                down.data as Boolean,
-                                left.data as Boolean,
-                                right.data as Boolean,
-                                leftStick.data as Double,
-                                rightStick.data as Double,
-                                leftTrigger.data as Double,
-                                rightTrigger.data as Double
-                        )
-                        else                    -> null
-                    }
+                    GamepadDataPacket(
+                            id,
+                            leftBumper.castData(),
+                            rightBumper.castData(),
+                            a.castData(),
+                            b.castData(),
+                            x.castData(),
+                            y.castData(),
+                            up.castData(),
+                            down.castData(),
+                            left.castData(),
+                            right.castData(),
+                            leftStickX.castData(),
+                            leftStickY.castData(),
+                            leftStickButton.castData(),
+                            rightStickX.castData(),
+                            rightStickY.castData(),
+                            rightStickButton.castData(),
+                            leftTrigger.castData(),
+                            rightTrigger.castData()
+                    )
                 }
 
         /**
@@ -307,6 +243,9 @@ object DevicePacket {
                     TelemetryDataPacket(caption, string)
                 }
 
+        /**
+         * Try converting [CombinedPacket] into [DeviceDescriptionPacket]
+         */
         fun CombinedPacket.DeviceDescriptionPacket() =
                 takeIf { label == Label.DeviceDescriptionPacket }
                         ?.run { DeviceDescriptionPacket(data[0].data as Byte, data[1].data as String) }

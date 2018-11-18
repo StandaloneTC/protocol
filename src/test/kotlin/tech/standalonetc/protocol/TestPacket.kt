@@ -26,7 +26,8 @@ class TestPacket {
 
     @Test
     fun testGamepad() {
-        val a = DevicePacket.GamepadDataPacket.Master(
+        val a = DevicePacket.GamepadDataPacket(
+                DevicePacket.BuiltinId.GamepadMaster,
                 false,
                 false,
                 true,
@@ -39,12 +40,16 @@ class TestPacket {
                 true,
                 .7,
                 .5,
+                false,
                 .3,
+                .2,
+                false,
+                .1,
                 .2
         )
         val encoded = a.toByteArray()
         val a1 = encoded.toPrimitivePacket() as CombinedPacket
-        val (_, _, _, _, trigger) = a1
-        Assert.assertEquals(.3, (trigger as CombinedPacket).data[0].data)
+        val (_, _, _, _, _, trigger) = a1
+        Assert.assertEquals(.1, (trigger as CombinedPacket).data[0].data)
     }
 }
