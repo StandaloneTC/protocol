@@ -13,8 +13,8 @@ import java.util.concurrent.LinkedBlockingQueue
  * Provides scheduling possibilities.
  */
 class NetworkClient(name: String, private val oppositeName: String,
-                    private val onPacketReceive: Packet<*>.() -> Unit,
-                    private val rawPacketReceive: Packet<*>.() -> Unit) : Closeable {
+                    private val rawPacketReceive: Packet<*>.() -> Unit = {},
+                    private val onPacketReceive: Packet<*>.() -> Unit) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(3)
 
