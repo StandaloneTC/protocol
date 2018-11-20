@@ -16,8 +16,8 @@ import java.util.logging.Logger
 class NetworkClient(name: String,
                     private val oppositeName: String,
                     workers: Int = 3,
-                    onRawPacketReceive: PacketCallback = {},
-                    onPacketReceive: PacketCallback) : Closeable {
+                    onRawPacketReceive: PacketCallback? = null,
+                    onPacketReceive: PacketCallback? = null) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(workers + 1)
 
@@ -29,6 +29,7 @@ class NetworkClient(name: String,
 
     private val packetReceiveCallbacks =
             ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+
     private val rawPacketReceiveCallbacks =
             ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
@@ -47,8 +48,8 @@ class NetworkClient(name: String,
                     remoteHub()
             }
         }
-        packetReceiveCallbacks.add(onPacketReceive)
-        rawPacketReceiveCallbacks.add(onRawPacketReceive)
+        onPacketReceive?.let { packetReceiveCallbacks.add(it) }
+        onRawPacketReceive?.let { rawPacketReceiveCallbacks.add(it) }
     }
 
     /**
@@ -60,6 +61,28 @@ class NetworkClient(name: String,
         logger.info("Broadcast a ${packet.javaClass.simpleName}.")
     }
 
+
+    /**
+     * Add a packet callback.
+     */
+    fun addPacketCallBack(callback: PacketCallback) = packetReceiveCallbacks.add(callback)
+
+    /**
+     * Remove a packet callback.
+     */
+    fun removePacketCallback(callback: PacketCallback) = packetReceiveCallbacks.remove(callback)
+
+    /**
+     * Add a raw packet callback.
+     * A raw packet callback will be invoked only a packet
+     * failed to be wrapped.
+     */
+    fun addRawPacketCallback(callback: PacketCallback) = rawPacketReceiveCallbacks.add(callback)
+
+    /**
+     * Remove a raw packet callback.
+     */
+    fun removeRawPacketCallback(callback: PacketCallback) = rawPacketReceiveCallbacks.remove(callback)
 
     /**
      * Shutdown this client.
