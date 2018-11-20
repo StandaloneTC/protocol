@@ -6,17 +6,19 @@ import org.mechdancer.remote.core.broadcastBy
 import tech.standalonetc.protocol.packtes.*
 import java.io.Closeable
 import java.util.concurrent.Executors
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.logging.Logger
 
 /**
  * A wrapper of [org.mechdancer.remote.core.RemoteHub]
  * Provides scheduling possibilities.
  */
-class NetworkClient(name: String, private val oppositeName: String,
-                    private val rawPacketReceive: Packet<*>.() -> Unit = {},
+class NetworkClient(name: String,
+                    private val oppositeName: String,
+                    workers: Int = 3,
+                    private val onRawPacketReceive: Packet<*>.() -> Unit = {},
                     private val onPacketReceive: Packet<*>.() -> Unit) : Closeable {
 
-    private val worker = Executors.newFixedThreadPool(3)
+    private val worker = Executors.newFixedThreadPool(workers + 1)
 
     private val plugin = StandalonePlugin()
 
@@ -24,39 +26,49 @@ class NetworkClient(name: String, private val oppositeName: String,
         plugins setup plugin
     }
 
-    private val broadcastQueue = LinkedBlockingQueue<ByteArray>()
+    private val logger = Logger.getLogger(javaClass.name)
+
+    private var isClosed = false
 
     init {
         worker.submit {
-            while (true)
-                remoteHub()
-        }
-        worker.submit {
-            while (true)
+            while (!isClosed)
                 remoteHub.listen()
         }
-        worker.submit {
-            while (true)
-                remoteHub.broadcastBy<StandalonePlugin>(broadcastQueue.take())
+        repeat(workers) {
+            worker.submit {
+                while (!isClosed)
+                    remoteHub()
+            }
         }
     }
 
     /**
-     * broadcast a packet
+     * Broadcast a packet.
      */
     fun broadcastPacket(packet: Packet<*>) {
-        broadcastQueue.offer(packet.toByteArray())
+        if (isClosed) throw IllegalStateException("NetworkClient has been closed.")
+        remoteHub.broadcastBy<StandalonePlugin>(packet.toByteArray())
+        logger.info("Broadcast a ${packet.javaClass.simpleName}.")
     }
 
 
+    /**
+     * Shutdown this client.
+     * No side effects produced calling repeatedly.
+     */
     override fun close() {
+        if (isClosed) return
+        isClosed = true
         worker.shutdown()
         remoteHub.close()
+        logger.info("NetworkClient closed.")
     }
 
     private inner class StandalonePlugin : RemotePlugin('X') {
 
         override fun onBroadcast(sender: String, payload: ByteArray) {
+            logger.info("Received a packet from $sender.")
             if (sender != oppositeName) return
             val packet = payload.toPrimitivePacket()
             with(DevicePacket.Conversion) {
@@ -77,10 +89,13 @@ class NetworkClient(name: String, private val oppositeName: String,
                         is StringPacket   ->
                             TelemetryDataPacket()
 
-                        else              -> {
-                            rawPacketReceive(this)
-                            null
-                        }
+                        else              -> null
+
+                    } ?: run {
+                        logger.warning("Failed to wrap packet. " +
+                                "Calling raw packet listener.")
+                        onRawPacketReceive(this)
+                        null
                     }
                 }?.let { onPacketReceive(it) }
             }
