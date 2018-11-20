@@ -5,6 +5,7 @@ import org.mechdancer.remote.core.RemotePlugin
 import org.mechdancer.remote.core.broadcastBy
 import tech.standalonetc.protocol.packtes.*
 import java.io.Closeable
+import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors
 import java.util.logging.Logger
 
@@ -15,8 +16,8 @@ import java.util.logging.Logger
 class NetworkClient(name: String,
                     private val oppositeName: String,
                     workers: Int = 3,
-                    private val onRawPacketReceive: Packet<*>.() -> Unit = {},
-                    private val onPacketReceive: Packet<*>.() -> Unit) : Closeable {
+                    onRawPacketReceive: PacketCallback = {},
+                    onPacketReceive: PacketCallback) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(workers + 1)
 
@@ -25,6 +26,11 @@ class NetworkClient(name: String,
     private val remoteHub = remoteHub(name) {
         plugins setup plugin
     }
+
+    private val packetReceiveCallbacks =
+            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+    private val rawPacketReceiveCallbacks =
+            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private val logger = Logger.getLogger(javaClass.name)
 
@@ -41,6 +47,8 @@ class NetworkClient(name: String,
                     remoteHub()
             }
         }
+        packetReceiveCallbacks.add(onPacketReceive)
+        rawPacketReceiveCallbacks.add(onRawPacketReceive)
     }
 
     /**
@@ -60,6 +68,8 @@ class NetworkClient(name: String,
     override fun close() {
         if (isClosed) return
         isClosed = true
+        packetReceiveCallbacks.clear()
+        rawPacketReceiveCallbacks.clear()
         worker.shutdown()
         remoteHub.close()
         logger.info("NetworkClient closed.")
@@ -94,10 +104,10 @@ class NetworkClient(name: String,
                     } ?: run {
                         logger.warning("Failed to wrap packet. " +
                                 "Calling raw packet listener.")
-                        onRawPacketReceive(this)
+                        rawPacketReceiveCallbacks.forEach { it(this) }
                         null
                     }
-                }?.let { onPacketReceive(it) }
+                }?.let { packet -> packetReceiveCallbacks.forEach { it(packet) } }
             }
         }
 
