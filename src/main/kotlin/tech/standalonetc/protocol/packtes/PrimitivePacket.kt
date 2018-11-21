@@ -5,7 +5,7 @@ package tech.standalonetc.protocol.packtes
  */
 sealed class Packet<T>(val type: Byte, val id: Byte, val label: Byte, val data: T) {
     override fun toString(): String = "${javaClass.simpleName}[id: $id, ${if (label != (-1).toByte()) "label: $label, " else ""}" +
-            "data: ${if (this is CombinedPacket) data.joinToString() else data.toString()}]"
+            "data: ${if (this is CombinedPacket) "{${data.joinToString()}}" else data.toString()}]"
 
 }
 
