@@ -1,36 +1,37 @@
 package tech.standalonetc.protocol.packtes
 
 /**
- * Device packet protocol
+ * Robot packet protocol
  */
 @Suppress("FunctionName", "MemberVisibilityCanBePrivate", "CanBeParameter")
-object DevicePacket {
+object RobotPacket {
 
     /**
-     * Device description
+     * Device description packet
      * To let slave know what device we should use.
      */
     class DeviceDescriptionPacket(val deviceId: Byte, val deviceName: String)
         : CombinedPacket(
-            BuiltinId.DeviceDescriptionPacket,
-            BytePacket(BuiltinId.DeviceDescriptionPacket, deviceId),
-            StringPacket(BuiltinId.DeviceDescriptionPacket, deviceName),
+            BuiltinId.DeviceDescription,
+            BytePacket(BuiltinId.DeviceDescription, deviceId),
+            StringPacket(BuiltinId.DeviceDescription, deviceName),
             label = Label.DeviceDescriptionPacket)
 
     /**
-     * Pwm enable of continuous servo and normal servo
+     * Pwm enable packet
+     * describe whether a continuous servo or normal servo enable pwm output
      */
     class PwmEnablePacket(id: Byte, val enable: Boolean)
         : BooleanPacket(id, enable, Label.PwmEnablePacket)
 
     /**
-     * Power of continuous servo
+     * Continuous servo packet
      */
     class ContinuousServoPowerPacket(id: Byte, val power: Double)
         : DoublePacket(id, power, Label.ContinuousServoPowerPacket)
 
     /**
-     * Encoder data
+     * Encoder data packet
      */
     class EncoderDataPacket(id: Byte, val position: Int, speed: Double)
         : CombinedPacket(id,
@@ -39,24 +40,25 @@ object DevicePacket {
             label = Label.EncoderDataPacket)
 
     /**
-     * Power of continuous motor
+     * Motor power packet
      */
     class MotorPowerPacket(id: Byte, val power: Double)
         : DoublePacket(id, power, Label.MotorPowerPacket)
 
     /**
-     * Position of servo
+     * Servo position packet
      */
     class ServoPositionPacket(id: Byte, val degree: Double)
         : DoublePacket(id, degree, Label.ServoPositionPacket)
 
     /**
-     * Reset a encoder
+     * Encoder reset packet
+     * reset [id]'s encoder, if it is a motor
      */
     class EncoderResetPacket(id: Byte) : BytePacket(id, 0, Label.EncoderResetPacket)
 
     /**
-     * Gamepad packet
+     * Gamepad data packet
      */
     class GamepadDataPacket(
             id: Byte,
@@ -110,13 +112,13 @@ object DevicePacket {
     )
 
     /**
-     * Voltage of robot
+     * Robot voltage packet
      */
     class VoltageDataPacket(val voltage: Double)
         : DoublePacket(BuiltinId.Voltage, voltage, Label.VoltageDataPacket)
 
     /**
-     * Telemetry data
+     * Telemetry data packet
      */
     class TelemetryDataPacket(val caption: String, val string: String)
         : StringPacket(BuiltinId.Telemetry, "$caption\$\$$string", Label.TelemetryDataPacket)
@@ -139,22 +141,37 @@ object DevicePacket {
      * unrelated to device.
      */
     object BuiltinId {
+        /**
+         * Voltage packet id
+         */
         const val Voltage: Byte = 126
+        /**
+         * Master gamepad packet id
+         */
         const val GamepadMaster: Byte = 125
+        /**
+         * Helper gamepad packet id
+         */
         const val GamepadHelper: Byte = 124
+        /**
+         * Telemetry data packet id
+         */
         const val Telemetry: Byte = 123
-        const val DeviceDescriptionPacket: Byte = 122
+        /**
+         * Device description packet id
+         */
+        const val DeviceDescription: Byte = 122
     }
 
     /**
-     * Wrap primitive [Packet] to DevicePacket
+     * Wrap a primitive [Packet] to a RobotPacket
      */
     object Conversion {
 
         /**
          * Cast a packet data into [T]
          */
-        inline fun <reified T> Packet<*>.castData() = data as T
+        inline fun <reified T> Packet<*>.castPacketData() = data as T
 
         /**
          * Try converting [BooleanPacket] into [PwmEnablePacket]
@@ -173,7 +190,7 @@ object DevicePacket {
          */
         fun CombinedPacket.EncoderDataPacket() =
                 takeIf { label == Label.EncoderDataPacket }
-                        ?.run { EncoderDataPacket(id, data[0].castData() as Int, data[1].castData()) }
+                        ?.run { EncoderDataPacket(id, data[0].castPacketData() as Int, data[1].castPacketData()) }
 
         /**
          * Try converting [DoublePacket] into [MotorPowerPacket]
@@ -207,24 +224,24 @@ object DevicePacket {
                     val (leftTrigger, rightTrigger) = trigger as CombinedPacket
                     GamepadDataPacket(
                             id,
-                            leftBumper.castData(),
-                            rightBumper.castData(),
-                            a.castData(),
-                            b.castData(),
-                            x.castData(),
-                            y.castData(),
-                            up.castData(),
-                            down.castData(),
-                            left.castData(),
-                            right.castData(),
-                            leftStickX.castData(),
-                            leftStickY.castData(),
-                            leftStickButton.castData(),
-                            rightStickX.castData(),
-                            rightStickY.castData(),
-                            rightStickButton.castData(),
-                            leftTrigger.castData(),
-                            rightTrigger.castData()
+                            leftBumper.castPacketData(),
+                            rightBumper.castPacketData(),
+                            a.castPacketData(),
+                            b.castPacketData(),
+                            x.castPacketData(),
+                            y.castPacketData(),
+                            up.castPacketData(),
+                            down.castPacketData(),
+                            left.castPacketData(),
+                            right.castPacketData(),
+                            leftStickX.castPacketData(),
+                            leftStickY.castPacketData(),
+                            leftStickButton.castPacketData(),
+                            rightStickX.castPacketData(),
+                            rightStickY.castPacketData(),
+                            rightStickButton.castPacketData(),
+                            leftTrigger.castPacketData(),
+                            rightTrigger.castPacketData()
                     )
                 }
 

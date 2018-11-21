@@ -100,21 +100,24 @@ class NetworkClient(name: String,
 
     private inner class StandalonePlugin : RemotePlugin('X') {
 
-        override fun onBroadcast(sender: String, payload: ByteArray) {
-            logger.info("Received a packet from $sender.")
-            if (sender != oppositeName) return
-            val packet = payload.toPrimitivePacket()
-            with(DevicePacket.Conversion) {
+        private fun processPacket(packet: Packet<*>) {
+            with(RobotPacket.Conversion) {
                 packet.run {
                     when (this) {
                         is DoublePacket   ->
-                            MotorPowerPacket() ?: ContinuousServoPowerPacket() ?: VoltageDataPacket() ?: ServoPositionPacket()
+                            MotorPowerPacket()
+                                    ?: ContinuousServoPowerPacket()
+                                    ?: VoltageDataPacket()
+                                    ?: ServoPositionPacket()
 
                         is BooleanPacket  ->
                             PwmEnablePacket()
 
                         is CombinedPacket ->
-                            EncoderDataPacket() ?: GamepadDataPacket() ?: DeviceDescriptionPacket()
+                            EncoderDataPacket()
+                                    ?: GamepadDataPacket()
+                                    ?: DeviceDescriptionPacket()
+
 
                         is BytePacket     ->
                             EncoderResetPacket()
@@ -125,13 +128,26 @@ class NetworkClient(name: String,
                         else              -> null
 
                     } ?: run {
-                        logger.warning("Failed to wrap packet. " +
-                                "Calling raw packet listener.")
-                        rawPacketReceiveCallbacks.forEach { it(this) }
-                        null
+                        if (packet is CombinedPacket) {
+                            logger.info("Unknown combined packet. Unpacking it.")
+                            (this as CombinedPacket).data.forEach { processPacket(it) }
+                            null
+                        } else {
+                            logger.warning("Failed to wrap packet. " +
+                                    "Calling raw packet listener.")
+                            rawPacketReceiveCallbacks.forEach { it(this) }
+                            null
+                        }
                     }
                 }?.let { packet -> packetReceiveCallbacks.forEach { it(packet) } }
             }
+        }
+
+        override fun onBroadcast(sender: String, payload: ByteArray) {
+            logger.info("Received a packet from $sender.")
+            if (sender != oppositeName) return
+            val packet = payload.toPrimitivePacket()
+            processPacket(packet)
         }
 
     }

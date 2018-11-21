@@ -26,8 +26,8 @@ class TestPacket {
 
     @Test
     fun testGamepad() {
-        val a = DevicePacket.GamepadDataPacket(
-                DevicePacket.BuiltinId.GamepadMaster,
+        val a = RobotPacket.GamepadDataPacket(
+                RobotPacket.BuiltinId.GamepadMaster,
                 false,
                 false,
                 true,
