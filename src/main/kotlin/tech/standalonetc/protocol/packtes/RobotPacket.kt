@@ -32,7 +32,11 @@ object RobotPacket {
     /**
      * Encoder data packet
      */
-    class EncoderDataPacket(id: Byte, val position: Int, speed: Double) : CombinedPacket(
+    class EncoderDataPacket(
+        id: Byte,
+        val position: Int,
+        val speed: Double
+    ) : CombinedPacket(
         id,
         IntPacket(id, position),
         DoublePacket(id, speed),
