@@ -13,11 +13,13 @@ import java.util.logging.Logger
  * A wrapper of [org.mechdancer.remote.core.RemoteHub]
  * Provides scheduling possibilities.
  */
-class NetworkClient(name: String,
-                    private val oppositeName: String,
-                    workers: Int = 3,
-                    onRawPacketReceive: PacketCallback? = null,
-                    onPacketReceive: PacketCallback? = null) : Closeable {
+class NetworkClient(
+    name: String,
+    private val oppositeName: String,
+    workers: Int = 3,
+    onRawPacketReceive: PacketCallback? = null,
+    onPacketReceive: PacketCallback? = null
+) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(workers + 1)
 
@@ -28,14 +30,26 @@ class NetworkClient(name: String,
     }
 
     private val packetReceiveCallbacks =
-            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private val rawPacketReceiveCallbacks =
-            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private val logger = Logger.getLogger(javaClass.name)
 
     private var isClosed = false
+
+    var debug = false
+
+    private fun log(message: String) {
+        if (debug)
+            logger.info(message)
+    }
+
+    private fun warn(message: String) {
+        if (debug)
+            logger.warning(message)
+    }
 
     init {
         worker.submit {
@@ -58,7 +72,7 @@ class NetworkClient(name: String,
     fun broadcastPacket(packet: Packet<*>) {
         if (isClosed) throw IllegalStateException("NetworkClient has been closed.")
         remoteHub.broadcastBy<StandalonePlugin>(packet.toByteArray())
-        logger.info("Broadcast a ${packet.javaClass.simpleName}.")
+        log("Broadcast a ${packet.javaClass.simpleName}.")
     }
 
 
@@ -104,37 +118,41 @@ class NetworkClient(name: String,
             with(RobotPacket.Conversion) {
                 packet.run {
                     when (this) {
-                        is DoublePacket   ->
+                        is DoublePacket ->
                             MotorPowerPacket()
-                                    ?: ContinuousServoPowerPacket()
-                                    ?: VoltageDataPacket()
-                                    ?: ServoPositionPacket()
+                                ?: ContinuousServoPowerPacket()
+                                ?: VoltageDataPacket()
+                                ?: ServoPositionPacket()
 
-                        is BooleanPacket  ->
+                        is BooleanPacket ->
                             PwmEnablePacket()
 
                         is CombinedPacket ->
                             EncoderDataPacket()
-                                    ?: GamepadDataPacket()
-                                    ?: DeviceDescriptionPacket()
+                                ?: GamepadDataPacket()
+                                ?: DeviceDescriptionPacket()
 
+                        is BytePacket ->
+                            EncoderResetPacket() ?: TelemetryClearPacket()
 
-                        is BytePacket     ->
-                            EncoderResetPacket()
+                        is StringPacket ->
+                            TelemetryDataPacket() ?: OpModeNamePacket()
 
-                        is StringPacket   ->
-                            TelemetryDataPacket()
+                        is IntPacket ->
+                            OperationPeriodPacket()
 
-                        else              -> null
+                        else -> null
 
                     } ?: run {
                         if (packet is CombinedPacket) {
-                            logger.info("Unknown combined packet. Unpacking it.")
+                            log("Unknown combined packet. Unpacking it.")
                             (this as CombinedPacket).data.forEach { processPacket(it) }
                             null
                         } else {
-                            logger.warning("Failed to wrap packet. " +
-                                    "Calling raw packet listener.")
+                            warn(
+                                "Failed to wrap packet. " +
+                                        "Calling raw packet listener."
+                            )
                             rawPacketReceiveCallbacks.forEach { it(this) }
                             null
                         }
@@ -144,7 +162,7 @@ class NetworkClient(name: String,
         }
 
         override fun onBroadcast(sender: String, payload: ByteArray) {
-            logger.info("Received a packet from $sender.")
+            log("Received a packet from $sender.")
             if (sender != oppositeName) return
             val packet = payload.toPrimitivePacket()
             processPacket(packet)
