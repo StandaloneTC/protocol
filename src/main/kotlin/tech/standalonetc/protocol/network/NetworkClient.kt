@@ -131,12 +131,13 @@ class NetworkClient(
                             EncoderDataPacket()
                                 ?: GamepadDataPacket()
                                 ?: DeviceDescriptionPacket()
+                                ?: OpModeInfoPacket()
 
                         is BytePacket ->
                             EncoderResetPacket() ?: TelemetryClearPacket()
 
                         is StringPacket ->
-                            TelemetryDataPacket() ?: OpModeNamePacket()
+                            TelemetryDataPacket()
 
                         is IntPacket ->
                             OperationPeriodPacket()

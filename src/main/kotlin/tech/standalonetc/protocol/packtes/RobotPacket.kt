@@ -11,9 +11,9 @@ object RobotPacket {
      * To let slave know what device we should use.
      */
     class DeviceDescriptionPacket(val deviceId: Byte, val deviceName: String) : CombinedPacket(
-        BuiltinId.DeviceDescription,
-        BytePacket(BuiltinId.DeviceDescription, deviceId),
-        StringPacket(BuiltinId.DeviceDescription, deviceName),
+        BuiltinId.Environment,
+        BytePacket(BuiltinId.Environment, deviceId),
+        StringPacket(BuiltinId.Environment, deviceName),
         label = Label.DeviceDescriptionPacket
     )
 
@@ -124,30 +124,44 @@ object RobotPacket {
     /**
      * Robot voltage packet
      */
-    class VoltageDataPacket(val voltage: Double) : DoublePacket(BuiltinId.Voltage, voltage, Label.VoltageDataPacket)
+    class VoltageDataPacket(val voltage: Double) : DoublePacket(BuiltinId.Environment, voltage, Label.VoltageDataPacket)
 
     /**
      * Telemetry data packet
      */
     class TelemetryDataPacket(val caption: String, val string: String) :
-        StringPacket(BuiltinId.Telemetry, "$caption\$\$$string", Label.TelemetryDataPacket)
+        StringPacket(BuiltinId.Environment, "$caption\$\$$string", Label.TelemetryDataPacket)
 
     /**
      * Telemetry clear packet
      * clear all telemetry messages.
      */
-    object TelemetryClearPacket : BytePacket(BuiltinId.Telemetry, 0, label = Label.TelemetryClearPacket)
+    object TelemetryClearPacket : BytePacket(BuiltinId.Environment, 0, label = Label.TelemetryClearPacket)
 
     /**
-     * OpMode name packet
-     */
-    class OpModeNamePacket(val name: String) : StringPacket(BuiltinId.OpModeName, name, Label.OpModeNamePacket)
+     * OpMode info packet
+    `     */
+    class OpModeInfoPacket(
+        val opModeName: String,
+        val state: Byte
+    ) : CombinedPacket(
+        BuiltinId.Environment,
+        StringPacket(BuiltinId.Environment, opModeName),
+        BytePacket(BuiltinId.Environment, state),
+        label = Label.OpModeInfoPacket
+    ) {
+        companion object {
+            const val INIT: Byte = 0
+            const val START: Byte = 1
+            const val STOP: Byte = 2
+        }
+    }
 
     /**
      * Operation period packet
      */
     class OperationPeriodPacket(val period: Int) :
-        IntPacket(BuiltinId.OperationPeriod, period, Label.OperationPeriodPacket)
+        IntPacket(BuiltinId.Environment, period, Label.OperationPeriodPacket)
 
 
     internal object Label {
@@ -162,7 +176,7 @@ object RobotPacket {
         const val TelemetryDataPacket: Byte = 8
         const val DeviceDescriptionPacket: Byte = 9
         const val TelemetryClearPacket: Byte = 10
-        const val OpModeNamePacket: Byte = 11
+        const val OpModeInfoPacket: Byte = 11
         const val OperationPeriodPacket: Byte = 12
     }
 
@@ -172,35 +186,19 @@ object RobotPacket {
      */
     object BuiltinId {
         /**
-         * Voltage id
+         * Environment id
          */
-        const val Voltage: Byte = 126
+        const val Environment: Byte = 126
+
         /**
          * Master gamepad id
          */
         const val GamepadMaster: Byte = 125
+
         /**
          * Helper gamepad id
          */
         const val GamepadHelper: Byte = 124
-        /**
-         * Telemetry id
-         */
-        const val Telemetry: Byte = 123
-        /**
-         * Device description id
-         */
-        const val DeviceDescription: Byte = 122
-
-        /**
-         * OpMode name id
-         */
-        const val OpModeName: Byte = 121
-
-        /**
-         * Operation period id
-         */
-        const val OperationPeriod: Byte = 120
     }
 
     /**
@@ -315,11 +313,11 @@ object RobotPacket {
                 ?.run { TelemetryClearPacket }
 
         /**
-         * Try converting [String] into [OpModeNamePacket]
+         * Try converting [CombinedPacket] into [OpModeInfoPacket]
          */
-        fun StringPacket.OpModeNamePacket() =
-            takeIf { label == Label.OpModeNamePacket }
-                ?.run { OpModeNamePacket(data) }
+        fun CombinedPacket.OpModeInfoPacket() =
+            takeIf { label == Label.OpModeInfoPacket }
+                ?.run { OpModeInfoPacket(data[0].castPacketData(), data[1].castPacketData()) }
 
         /**
          * Try converting [IntPacket] into [OperationPeriodPacket]

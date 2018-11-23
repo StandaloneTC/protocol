@@ -1,4 +1,7 @@
 import com.novoda.gradle.release.PublishExtension
+import org.jetbrains.dokka.DokkaConfiguration
+import org.jetbrains.dokka.gradle.DokkaTask
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
@@ -48,3 +51,16 @@ configure<PublishExtension> {
     desc = "communication protocol for StandaloneTC."
     website = "https://github.com/StandaloneTC/protocol"
 }
+
+task<Jar>("sourceJar") {
+    classifier = "sources"
+    from(java.sourceSets["main"].allSource)
+}
+
+tasks.withType<DokkaTask> {
+    outputFormat = "html"
+    outputDirectory = "$buildDir/javadoc"
+}
+
+//tasks["javadoc"].dependsOn("dokka")
+tasks["jar"].dependsOn("sourceJar")
