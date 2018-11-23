@@ -57,6 +57,11 @@ task<Jar>("sourceJar") {
     from(java.sourceSets["main"].allSource)
 }
 
+task<Jar>("javadocJar") {
+    classifier = "javadoc"
+    from(java.docsDir)
+}
+
 tasks.withType<DokkaTask> {
     outputFormat = "html"
     outputDirectory = "$buildDir/javadoc"
@@ -64,3 +69,4 @@ tasks.withType<DokkaTask> {
 
 //tasks["javadoc"].dependsOn("dokka")
 tasks["jar"].dependsOn("sourceJar")
+tasks["jar"].dependsOn("javadocJar")
