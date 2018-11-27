@@ -3,8 +3,11 @@ package tech.standalonetc.protocol.network
 import org.mechdancer.remote.builder.remoteHub
 import org.mechdancer.remote.core.RemotePlugin
 import org.mechdancer.remote.core.broadcastBy
-import tech.standalonetc.protocol.RobotPacket
-import tech.standalonetc.protocol.packet.*
+import tech.standalonetc.protocol.packet.CombinedPacket
+import tech.standalonetc.protocol.packet.Packet
+import tech.standalonetc.protocol.packet.convert.PacketConversion
+import tech.standalonetc.protocol.packet.toByteArray
+import tech.standalonetc.protocol.packet.toPrimitivePacket
 import java.io.Closeable
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors
@@ -15,11 +18,11 @@ import java.util.logging.Logger
  * Provides scheduling possibilities.
  */
 class NetworkClient(
-    name: String,
-    private val oppositeName: String,
-    workers: Int = 3,
-    onRawPacketReceive: PacketCallback? = null,
-    onPacketReceive: PacketCallback? = null
+        name: String,
+        private val oppositeName: String,
+        workers: Int = 3,
+        onRawPacketReceive: PacketCallback? = null,
+        onPacketReceive: PacketCallback? = null
 ) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(workers + 1)
@@ -31,10 +34,12 @@ class NetworkClient(
     }
 
     private val packetReceiveCallbacks =
-        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private val rawPacketReceiveCallbacks =
-        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+
+    private var packetConversion: PacketConversion<*> = PacketConversion.EmptyPacketConversion
 
     private val logger = Logger.getLogger(javaClass.name)
 
@@ -100,6 +105,13 @@ class NetworkClient(
     fun removeRawPacketCallback(callback: PacketCallback) = rawPacketReceiveCallbacks.remove(callback)
 
     /**
+     * Set packet conversion
+     */
+    fun setPacketConversion(packetConversion: PacketConversion<*>) {
+        this.packetConversion = packetConversion
+    }
+
+    /**
      * Shutdown this client.
      * No side effects produced calling repeatedly.
      */
@@ -115,51 +127,17 @@ class NetworkClient(
 
     private inner class StandalonePlugin : RemotePlugin('X') {
 
-        private fun processPacket(packet: Packet<*>) {
-            with(RobotPacket.Conversion) {
-                packet.run {
-                    when (this) {
-                        is DoublePacket ->
-                            MotorPowerPacket()
-                                ?: ContinuousServoPowerPacket()
-                                ?: VoltageDataPacket()
-                                ?: ServoPositionPacket()
-
-                        is BooleanPacket ->
-                            PwmEnablePacket()
-
-                        is CombinedPacket ->
-                            EncoderDataPacket()
-                                ?: GamepadDataPacket()
-                                ?: DeviceDescriptionPacket()
-                                ?: OpModeInfoPacket()
-
-                        is BytePacket ->
-                            EncoderResetPacket() ?: TelemetryClearPacket()
-
-                        is StringPacket ->
-                            TelemetryDataPacket()
-
-                        is IntPacket ->
-                            OperationPeriodPacket()
-
-                        else -> null
-
-                    } ?: run {
-                        if (packet is CombinedPacket) {
-                            log("Unknown combined packet. Unpacking it.")
-                            (this as CombinedPacket).data.forEach { processPacket(it) }
-                            null
-                        } else {
-                            warn(
-                                "Failed to wrap packet. " +
-                                        "Calling raw packet listener."
-                            )
-                            rawPacketReceiveCallbacks.forEach { it(this) }
-                            null
-                        }
-                    }
-                }?.let { packet -> packetReceiveCallbacks.forEach { it(packet) } }
+        fun processPacket(packet: Packet<*>) {
+            packetConversion.wrap(packet)?.let { p ->
+                packetReceiveCallbacks.forEach { it(p) }
+            } ?: run {
+                if (packet is CombinedPacket) {
+                    log("Unknown combined packet. Unpacking it.")
+                    packet.data.forEach { processPacket(it) }
+                } else {
+                    warn("Failed to wrap packet. Calling raw packet listener.")
+                    rawPacketReceiveCallbacks.forEach { it(packet) }
+                }
             }
         }
 

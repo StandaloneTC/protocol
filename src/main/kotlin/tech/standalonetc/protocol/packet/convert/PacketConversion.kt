@@ -2,16 +2,16 @@ package tech.standalonetc.protocol.packet.convert
 
 import tech.standalonetc.protocol.packet.*
 
-abstract class PacketConversion<T> {
+abstract class PacketConversion<T : Packet<*>> {
 
-    protected val byteConverters: MutableSet<Converter<BytePacket, T>> = mutableSetOf()
-    protected val byteArrayConverters: MutableSet<Converter<ByteArrayPacket, T>> = mutableSetOf()
-    protected val intConverters: MutableSet<Converter<IntPacket, T>> = mutableSetOf()
-    protected val doubleConverters: MutableSet<Converter<DoublePacket, T>> = mutableSetOf()
-    protected val stringConverters: MutableSet<Converter<StringPacket, T>> = mutableSetOf()
-    protected val booleanConverters: MutableSet<Converter<BooleanPacket, T>> = mutableSetOf()
-    protected val longConverters: MutableSet<Converter<LongPacket, T>> = mutableSetOf()
-    protected val combinedConverters: MutableSet<Converter<CombinedPacket, T>> = mutableSetOf()
+    protected val byteConverters: MutableSet<PacketConverter<BytePacket, T>> = mutableSetOf()
+    protected val byteArrayConverters: MutableSet<PacketConverter<ByteArrayPacket, T>> = mutableSetOf()
+    protected val intConverters: MutableSet<PacketConverter<IntPacket, T>> = mutableSetOf()
+    protected val doubleConverters: MutableSet<PacketConverter<DoublePacket, T>> = mutableSetOf()
+    protected val stringConverters: MutableSet<PacketConverter<StringPacket, T>> = mutableSetOf()
+    protected val booleanConverters: MutableSet<PacketConverter<BooleanPacket, T>> = mutableSetOf()
+    protected val longConverters: MutableSet<PacketConverter<LongPacket, T>> = mutableSetOf()
+    protected val combinedConverters: MutableSet<PacketConverter<CombinedPacket, T>> = mutableSetOf()
 
     open fun wrap(packet: Packet<*>) =
             when (packet) {
@@ -26,13 +26,16 @@ abstract class PacketConversion<T> {
             }
 
 
-    private fun <U : Packet<*>> Iterable<Converter<U, T>>.tryConvert(packet: U) =
+    private fun <U : Packet<*>> Iterable<PacketConverter<U, T>>.tryConvert(packet: U) =
             iterator().let { iterator ->
                 var r: T? = null
-                while (iterator.hasNext() && r != null)
+                while (r == null && iterator.hasNext()) {
                     with(iterator.next()) {
                         r = packet.wrap()
                     }
+                }
                 r
             }
+
+    object EmptyPacketConversion : PacketConversion<Packet<*>>()
 }
