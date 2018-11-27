@@ -1,4 +1,4 @@
-package tech.standalonetc.protocol.packtes
+package tech.standalonetc.protocol.packet
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -97,6 +97,12 @@ operator fun Packet<*>.plus(other: Packet<*>) =
             other is CombinedPacket -> CombinedPacket(other.id, *other.data, this, label = other.label)
             else                    -> CombinedPacket(id, this, other, label = label)
         }
+
+/**
+ * Cast a packet data into [T]
+ */
+inline fun <reified T> Packet<*>.castPacketData() = data as T
+
 
 /**
  * Deconstruction support

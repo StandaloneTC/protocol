@@ -3,7 +3,8 @@ package tech.standalonetc.protocol.network
 import org.mechdancer.remote.builder.remoteHub
 import org.mechdancer.remote.core.RemotePlugin
 import org.mechdancer.remote.core.broadcastBy
-import tech.standalonetc.protocol.packtes.*
+import tech.standalonetc.protocol.RobotPacket
+import tech.standalonetc.protocol.packet.*
 import java.io.Closeable
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors

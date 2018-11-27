@@ -1,4 +1,7 @@
-package tech.standalonetc.protocol.packtes
+package tech.standalonetc.protocol
+
+import tech.standalonetc.protocol.packet.*
+import tech.standalonetc.protocol.packet.convert.PacketConversion
 
 /**
  * Robot packet protocol
@@ -11,9 +14,9 @@ object RobotPacket {
      * To let slave know what device we should use.
      */
     class DeviceDescriptionPacket(val deviceId: Byte, val deviceName: String) : CombinedPacket(
-        BuiltinId.Environment,
-        BytePacket(BuiltinId.Environment, deviceId),
-        StringPacket(BuiltinId.Environment, deviceName),
+            BuiltinId.Environment,
+            BytePacket(BuiltinId.Environment, deviceId),
+            StringPacket(BuiltinId.Environment, deviceName),
         label = Label.DeviceDescriptionPacket
     )
 
@@ -27,7 +30,7 @@ object RobotPacket {
      * Continuous servo packet
      */
     class ContinuousServoPowerPacket(id: Byte, val power: Double) :
-        DoublePacket(id, power, Label.ContinuousServoPowerPacket)
+            DoublePacket(id, power, Label.ContinuousServoPowerPacket)
 
     /**
      * Encoder data packet
@@ -38,8 +41,8 @@ object RobotPacket {
         val speed: Double
     ) : CombinedPacket(
         id,
-        IntPacket(id, position),
-        DoublePacket(id, speed),
+            IntPacket(id, position),
+            DoublePacket(id, speed),
         label = Label.EncoderDataPacket
     )
 
@@ -87,35 +90,35 @@ object RobotPacket {
         //front part
         BooleanPacket(id, rightBumper) + BooleanPacket(id, leftBumper),
         //button part
-        CombinedPacket(
-            id,
-            BooleanPacket(id, aButton),
-            BooleanPacket(id, bButton),
-            BooleanPacket(id, xButton),
-            BooleanPacket(id, yButton)
-        ),
+            CombinedPacket(
+                    id,
+                    BooleanPacket(id, aButton),
+                    BooleanPacket(id, bButton),
+                    BooleanPacket(id, xButton),
+                    BooleanPacket(id, yButton)
+            ),
         //direction key part
-        CombinedPacket(
-            id,
-            BooleanPacket(id, upButton),
-            BooleanPacket(id, downButton),
-            BooleanPacket(id, leftButton),
-            BooleanPacket(id, rightButton)
-        ),
+            CombinedPacket(
+                    id,
+                    BooleanPacket(id, upButton),
+                    BooleanPacket(id, downButton),
+                    BooleanPacket(id, leftButton),
+                    BooleanPacket(id, rightButton)
+            ),
         //left stick part
-        CombinedPacket(
-            id,
-            DoublePacket(id, leftStickX),
-            DoublePacket(id, leftStickY),
-            BooleanPacket(id, leftStickButton)
-        ),
+            CombinedPacket(
+                    id,
+                    DoublePacket(id, leftStickX),
+                    DoublePacket(id, leftStickY),
+                    BooleanPacket(id, leftStickButton)
+            ),
         //right stick part
-        CombinedPacket(
-            id,
-            DoublePacket(id, rightStickX),
-            DoublePacket(id, rightStickY),
-            BooleanPacket(id, rightStickButton)
-        ),
+            CombinedPacket(
+                    id,
+                    DoublePacket(id, rightStickX),
+                    DoublePacket(id, rightStickY),
+                    BooleanPacket(id, rightStickButton)
+            ),
         //trigger part
         DoublePacket(id, leftTrigger) + DoublePacket(id, rightTrigger),
         label = Label.GamepadDataPacket
@@ -130,7 +133,7 @@ object RobotPacket {
      * Telemetry data packet
      */
     class TelemetryDataPacket(val caption: String, val string: String) :
-        StringPacket(BuiltinId.Environment, "$caption\$\$$string", Label.TelemetryDataPacket)
+            StringPacket(BuiltinId.Environment, "$caption\$\$$string", Label.TelemetryDataPacket)
 
     /**
      * Telemetry clear packet
@@ -145,9 +148,9 @@ object RobotPacket {
         val opModeName: String,
         val state: Byte
     ) : CombinedPacket(
-        BuiltinId.Environment,
-        StringPacket(BuiltinId.Environment, opModeName),
-        BytePacket(BuiltinId.Environment, state),
+            BuiltinId.Environment,
+            StringPacket(BuiltinId.Environment, opModeName),
+            BytePacket(BuiltinId.Environment, state),
         label = Label.OpModeInfoPacket
     ) {
         companion object {
@@ -161,7 +164,7 @@ object RobotPacket {
      * Operation period packet
      */
     class OperationPeriodPacket(val period: Int) :
-        IntPacket(BuiltinId.Environment, period, Label.OperationPeriodPacket)
+            IntPacket(BuiltinId.Environment, period, Label.OperationPeriodPacket)
 
 
     internal object Label {
@@ -204,12 +207,7 @@ object RobotPacket {
     /**
      * Wrap a primitive [Packet] to a RobotPacket
      */
-    object Conversion {
-
-        /**
-         * Cast a packet data into [T]
-         */
-        inline fun <reified T> Packet<*>.castPacketData() = data as T
+    object Conversion : PacketConversion<Packet<*>>() {
 
         /**
          * Try converting [BooleanPacket] into [PwmEnablePacket]
@@ -218,7 +216,7 @@ object RobotPacket {
             takeIf { label == Label.PwmEnablePacket }?.run { PwmEnablePacket(id, data) }
 
         /**
-         * Try converting [DoublePacket ] into [ContinuousServoPowerPacket]
+         * Try converting [DoublePacket] into [ContinuousServoPowerPacket]
          */
         fun DoublePacket.ContinuousServoPowerPacket() =
             takeIf { label == Label.ContinuousServoPowerPacket }?.run { ContinuousServoPowerPacket(id, data) }
@@ -261,25 +259,25 @@ object RobotPacket {
                 val (rightStickX, rightStickY, rightStickButton) = rightStick as CombinedPacket
                 val (leftTrigger, rightTrigger) = trigger as CombinedPacket
                 GamepadDataPacket(
-                    id,
-                    leftBumper.castPacketData(),
-                    rightBumper.castPacketData(),
-                    a.castPacketData(),
-                    b.castPacketData(),
-                    x.castPacketData(),
-                    y.castPacketData(),
-                    up.castPacketData(),
-                    down.castPacketData(),
-                    left.castPacketData(),
-                    right.castPacketData(),
-                    leftStickX.castPacketData(),
-                    leftStickY.castPacketData(),
-                    leftStickButton.castPacketData(),
-                    rightStickX.castPacketData(),
-                    rightStickY.castPacketData(),
-                    rightStickButton.castPacketData(),
-                    leftTrigger.castPacketData(),
-                    rightTrigger.castPacketData()
+                        id,
+                        leftBumper.castPacketData(),
+                        rightBumper.castPacketData(),
+                        a.castPacketData(),
+                        b.castPacketData(),
+                        x.castPacketData(),
+                        y.castPacketData(),
+                        up.castPacketData(),
+                        down.castPacketData(),
+                        left.castPacketData(),
+                        right.castPacketData(),
+                        leftStickX.castPacketData(),
+                        leftStickY.castPacketData(),
+                        leftStickButton.castPacketData(),
+                        rightStickX.castPacketData(),
+                        rightStickY.castPacketData(),
+                        rightStickButton.castPacketData(),
+                        leftTrigger.castPacketData(),
+                        rightTrigger.castPacketData()
                 )
             }
 

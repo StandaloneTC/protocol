@@ -2,7 +2,7 @@ package tech.standalonetc.protocol
 
 import org.junit.Assert
 import org.junit.Test
-import tech.standalonetc.protocol.packtes.*
+import tech.standalonetc.protocol.packet.*
 
 class TestPacket {
 

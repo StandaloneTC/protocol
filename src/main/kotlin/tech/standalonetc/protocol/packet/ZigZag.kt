@@ -1,4 +1,4 @@
-package tech.standalonetc.protocol.packtes
+package tech.standalonetc.protocol.packet
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream

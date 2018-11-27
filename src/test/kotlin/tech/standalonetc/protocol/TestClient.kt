@@ -1,10 +1,9 @@
 package tech.standalonetc.protocol
 
 import tech.standalonetc.protocol.network.NetworkClient
-import tech.standalonetc.protocol.packtes.CombinedPacket
-import tech.standalonetc.protocol.packtes.DoublePacket
-import tech.standalonetc.protocol.packtes.Packet
-import tech.standalonetc.protocol.packtes.RobotPacket
+import tech.standalonetc.protocol.packet.CombinedPacket
+import tech.standalonetc.protocol.packet.DoublePacket
+import tech.standalonetc.protocol.packet.Packet
 
 
 object C {
