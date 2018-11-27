@@ -9,7 +9,7 @@ interface PacketConverter<T : Packet<*>, R : Packet<*>> : Converter<T, R> {
 
 }
 
-fun <T : Packet<*>, R : Packet<*>> (T.() -> R).toConverter() =
+fun <T : Packet<*>, R : Packet<*>> (T.() -> R?).toConverter() =
         object : PacketConverter<T, R> {
             override fun T.wrap(): R? = this@toConverter()
         }

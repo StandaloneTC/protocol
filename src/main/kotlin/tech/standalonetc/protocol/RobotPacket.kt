@@ -1,7 +1,9 @@
 package tech.standalonetc.protocol
 
+import tech.standalonetc.protocol.RobotPacket.Conversion.PwmEnablePacket
 import tech.standalonetc.protocol.packet.*
 import tech.standalonetc.protocol.packet.convert.PacketConversion
+import tech.standalonetc.protocol.packet.convert.toConverter
 
 /**
  * Robot packet protocol
@@ -17,7 +19,7 @@ object RobotPacket {
             BuiltinId.Environment,
             BytePacket(BuiltinId.Environment, deviceId),
             StringPacket(BuiltinId.Environment, deviceName),
-        label = Label.DeviceDescriptionPacket
+            label = Label.DeviceDescriptionPacket
     )
 
     /**
@@ -36,14 +38,14 @@ object RobotPacket {
      * Encoder data packet
      */
     class EncoderDataPacket(
-        id: Byte,
-        val position: Int,
-        val speed: Double
+            id: Byte,
+            val position: Int,
+            val speed: Double
     ) : CombinedPacket(
-        id,
+            id,
             IntPacket(id, position),
             DoublePacket(id, speed),
-        label = Label.EncoderDataPacket
+            label = Label.EncoderDataPacket
     )
 
     /**
@@ -66,30 +68,30 @@ object RobotPacket {
      * Gamepad data packet
      */
     class GamepadDataPacket(
-        id: Byte,
-        val leftBumper: Boolean,
-        val rightBumper: Boolean,
-        val aButton: Boolean,
-        val bButton: Boolean,
-        val xButton: Boolean,
-        val yButton: Boolean,
-        val upButton: Boolean,
-        val downButton: Boolean,
-        val leftButton: Boolean,
-        val rightButton: Boolean,
-        val leftStickX: Double,
-        val leftStickY: Double,
-        val leftStickButton: Boolean,
-        val rightStickX: Double,
-        val rightStickY: Double,
-        val rightStickButton: Boolean,
-        val leftTrigger: Double,
-        val rightTrigger: Double
+            id: Byte,
+            val leftBumper: Boolean,
+            val rightBumper: Boolean,
+            val aButton: Boolean,
+            val bButton: Boolean,
+            val xButton: Boolean,
+            val yButton: Boolean,
+            val upButton: Boolean,
+            val downButton: Boolean,
+            val leftButton: Boolean,
+            val rightButton: Boolean,
+            val leftStickX: Double,
+            val leftStickY: Double,
+            val leftStickButton: Boolean,
+            val rightStickX: Double,
+            val rightStickY: Double,
+            val rightStickButton: Boolean,
+            val leftTrigger: Double,
+            val rightTrigger: Double
     ) : CombinedPacket(
-        id,
-        //front part
-        BooleanPacket(id, rightBumper) + BooleanPacket(id, leftBumper),
-        //button part
+            id,
+            //front part
+            BooleanPacket(id, rightBumper) + BooleanPacket(id, leftBumper),
+            //button part
             CombinedPacket(
                     id,
                     BooleanPacket(id, aButton),
@@ -97,7 +99,7 @@ object RobotPacket {
                     BooleanPacket(id, xButton),
                     BooleanPacket(id, yButton)
             ),
-        //direction key part
+            //direction key part
             CombinedPacket(
                     id,
                     BooleanPacket(id, upButton),
@@ -105,23 +107,23 @@ object RobotPacket {
                     BooleanPacket(id, leftButton),
                     BooleanPacket(id, rightButton)
             ),
-        //left stick part
+            //left stick part
             CombinedPacket(
                     id,
                     DoublePacket(id, leftStickX),
                     DoublePacket(id, leftStickY),
                     BooleanPacket(id, leftStickButton)
             ),
-        //right stick part
+            //right stick part
             CombinedPacket(
                     id,
                     DoublePacket(id, rightStickX),
                     DoublePacket(id, rightStickY),
                     BooleanPacket(id, rightStickButton)
             ),
-        //trigger part
-        DoublePacket(id, leftTrigger) + DoublePacket(id, rightTrigger),
-        label = Label.GamepadDataPacket
+            //trigger part
+            DoublePacket(id, leftTrigger) + DoublePacket(id, rightTrigger),
+            label = Label.GamepadDataPacket
     )
 
     /**
@@ -145,13 +147,13 @@ object RobotPacket {
      * OpMode info packet
     `     */
     class OpModeInfoPacket(
-        val opModeName: String,
-        val state: Byte
+            val opModeName: String,
+            val state: Byte
     ) : CombinedPacket(
             BuiltinId.Environment,
             StringPacket(BuiltinId.Environment, opModeName),
             BytePacket(BuiltinId.Environment, state),
-        label = Label.OpModeInfoPacket
+            label = Label.OpModeInfoPacket
     ) {
         companion object {
             const val INIT: Byte = 0
@@ -209,119 +211,148 @@ object RobotPacket {
      */
     object Conversion : PacketConversion<Packet<*>>() {
 
+        init {
+            booleanConverters.apply {
+                add({ packet: BooleanPacket -> packet.PwmEnablePacket() }.toConverter())
+            }
+            doubleConverters.apply {
+                add({ packet: DoublePacket -> packet.ContinuousServoPowerPacket() }.toConverter())
+                add({ packet: DoublePacket -> packet.MotorPowerPacket() }.toConverter())
+                add({ packet: DoublePacket -> packet.ServoPositionPacket() }.toConverter())
+                add({ packet: DoublePacket -> packet.VoltageDataPacket() }.toConverter())
+            }
+            intConverters.apply {
+                add({ packet: IntPacket -> packet.OperationPeriodPacket() }.toConverter())
+            }
+            stringConverters.apply {
+                add({ packet: StringPacket -> packet.TelemetryDataPacket() }.toConverter())
+            }
+            byteConverters.apply {
+                add({ packet: BytePacket -> packet.TelemetryClearPacket() }.toConverter())
+                add({ packet: BytePacket -> packet.EncoderResetPacket() }.toConverter())
+            }
+            combinedConverters.apply {
+                add({ packet: CombinedPacket -> packet.DeviceDescriptionPacket() }.toConverter())
+                add({ packet: CombinedPacket -> packet.EncoderDataPacket() }.toConverter())
+                add({ packet: CombinedPacket -> packet.OpModeInfoPacket() }.toConverter())
+                add({ packet: CombinedPacket -> packet.GamepadDataPacket() }.toConverter())
+            }
+        }
+
+
         /**
          * Try converting [BooleanPacket] into [PwmEnablePacket]
          */
         fun BooleanPacket.PwmEnablePacket() =
-            takeIf { label == Label.PwmEnablePacket }?.run { PwmEnablePacket(id, data) }
+                takeIf { label == Label.PwmEnablePacket }?.run { PwmEnablePacket(id, data) }
 
         /**
          * Try converting [DoublePacket] into [ContinuousServoPowerPacket]
          */
         fun DoublePacket.ContinuousServoPowerPacket() =
-            takeIf { label == Label.ContinuousServoPowerPacket }?.run { ContinuousServoPowerPacket(id, data) }
+                takeIf { label == Label.ContinuousServoPowerPacket }?.run { ContinuousServoPowerPacket(id, data) }
 
         /**
          * Try converting [CombinedPacket] into [EncoderDataPacket]
          */
         fun CombinedPacket.EncoderDataPacket() =
-            takeIf { label == Label.EncoderDataPacket }
-                ?.run { EncoderDataPacket(id, data[0].castPacketData() as Int, data[1].castPacketData()) }
+                takeIf { label == Label.EncoderDataPacket }
+                        ?.run { EncoderDataPacket(id, data[0].castPacketData() as Int, data[1].castPacketData()) }
 
         /**
          * Try converting [DoublePacket] into [MotorPowerPacket]
          */
         fun DoublePacket.MotorPowerPacket() =
-            takeIf { label == Label.MotorPowerPacket }?.run { MotorPowerPacket(id, data) }
+                takeIf { label == Label.MotorPowerPacket }?.run { MotorPowerPacket(id, data) }
 
         /**
          * Try converting [IntPacket] into [ServoPositionPacket]
          */
         fun DoublePacket.ServoPositionPacket() =
-            takeIf { label == Label.ServoPositionPacket }?.run { ServoPositionPacket(id, data) }
+                takeIf { label == Label.ServoPositionPacket }?.run { ServoPositionPacket(id, data) }
 
         /**
          * Try converting [BytePacket] into [EncoderResetPacket]
          */
         fun BytePacket.EncoderResetPacket() =
-            takeIf { label == Label.EncoderResetPacket }?.run { EncoderResetPacket(id) }
+                takeIf { label == Label.EncoderResetPacket }?.run { EncoderResetPacket(id) }
 
         /**
          * Try converting [CombinedPacket] into [GamepadDataPacket]
          */
         fun CombinedPacket.GamepadDataPacket() =
-            takeIf { label == Label.GamepadDataPacket }?.run {
-                val (front, button, direction, leftStick, rightStick, trigger) = this
-                val (leftBumper, rightBumper) = front as CombinedPacket
-                val (a, b, x, y) = button as CombinedPacket
-                val (up, down, left, right) = direction as CombinedPacket
-                val (leftStickX, leftStickY, leftStickButton) = leftStick as CombinedPacket
-                val (rightStickX, rightStickY, rightStickButton) = rightStick as CombinedPacket
-                val (leftTrigger, rightTrigger) = trigger as CombinedPacket
-                GamepadDataPacket(
-                        id,
-                        leftBumper.castPacketData(),
-                        rightBumper.castPacketData(),
-                        a.castPacketData(),
-                        b.castPacketData(),
-                        x.castPacketData(),
-                        y.castPacketData(),
-                        up.castPacketData(),
-                        down.castPacketData(),
-                        left.castPacketData(),
-                        right.castPacketData(),
-                        leftStickX.castPacketData(),
-                        leftStickY.castPacketData(),
-                        leftStickButton.castPacketData(),
-                        rightStickX.castPacketData(),
-                        rightStickY.castPacketData(),
-                        rightStickButton.castPacketData(),
-                        leftTrigger.castPacketData(),
-                        rightTrigger.castPacketData()
-                )
-            }
+                takeIf { label == Label.GamepadDataPacket }?.run {
+                    val (front, button, direction, leftStick, rightStick, trigger) = this
+                    val (leftBumper, rightBumper) = front as CombinedPacket
+                    val (a, b, x, y) = button as CombinedPacket
+                    val (up, down, left, right) = direction as CombinedPacket
+                    val (leftStickX, leftStickY, leftStickButton) = leftStick as CombinedPacket
+                    val (rightStickX, rightStickY, rightStickButton) = rightStick as CombinedPacket
+                    val (leftTrigger, rightTrigger) = trigger as CombinedPacket
+                    GamepadDataPacket(
+                            id,
+                            leftBumper.castPacketData(),
+                            rightBumper.castPacketData(),
+                            a.castPacketData(),
+                            b.castPacketData(),
+                            x.castPacketData(),
+                            y.castPacketData(),
+                            up.castPacketData(),
+                            down.castPacketData(),
+                            left.castPacketData(),
+                            right.castPacketData(),
+                            leftStickX.castPacketData(),
+                            leftStickY.castPacketData(),
+                            leftStickButton.castPacketData(),
+                            rightStickX.castPacketData(),
+                            rightStickY.castPacketData(),
+                            rightStickButton.castPacketData(),
+                            leftTrigger.castPacketData(),
+                            rightTrigger.castPacketData()
+                    )
+                }
 
         /**
          * Try converting [DoublePacket] into [VoltageDataPacket]
          */
         fun DoublePacket.VoltageDataPacket() =
-            takeIf { label == Label.VoltageDataPacket }?.run { VoltageDataPacket(data) }
+                takeIf { label == Label.VoltageDataPacket }?.run { VoltageDataPacket(data) }
 
         /**
          * Try converting [StringPacket] into [TelemetryDataPacket]
          */
         fun StringPacket.TelemetryDataPacket() =
-            takeIf { label == Label.TelemetryDataPacket }?.run {
-                val (caption, string) = data.split("\$\$")
-                TelemetryDataPacket(caption, string)
-            }
+                takeIf { label == Label.TelemetryDataPacket }?.run {
+                    val (caption, string) = data.split("\$\$")
+                    TelemetryDataPacket(caption, string)
+                }
 
         /**
          * Try converting [CombinedPacket] into [DeviceDescriptionPacket]
          */
         fun CombinedPacket.DeviceDescriptionPacket() =
-            takeIf { label == Label.DeviceDescriptionPacket }
-                ?.run { DeviceDescriptionPacket(data[0].data as Byte, data[1].data as String) }
+                takeIf { label == Label.DeviceDescriptionPacket }
+                        ?.run { DeviceDescriptionPacket(data[0].data as Byte, data[1].data as String) }
 
         /**
          * Try converting [BytePacket] into [TelemetryClearPacket]
          */
         fun BytePacket.TelemetryClearPacket() =
-            takeIf { label == Label.TelemetryClearPacket }
-                ?.run { TelemetryClearPacket }
+                takeIf { label == Label.TelemetryClearPacket }
+                        ?.run { TelemetryClearPacket }
 
         /**
          * Try converting [CombinedPacket] into [OpModeInfoPacket]
          */
         fun CombinedPacket.OpModeInfoPacket() =
-            takeIf { label == Label.OpModeInfoPacket }
-                ?.run { OpModeInfoPacket(data[0].castPacketData(), data[1].castPacketData()) }
+                takeIf { label == Label.OpModeInfoPacket }
+                        ?.run { OpModeInfoPacket(data[0].castPacketData(), data[1].castPacketData()) }
 
         /**
          * Try converting [IntPacket] into [OperationPeriodPacket]
          */
         fun IntPacket.OperationPeriodPacket() =
-            takeIf { label == Label.OperationPeriodPacket }
-                ?.run { OperationPeriodPacket(data) }
+                takeIf { label == Label.OperationPeriodPacket }
+                        ?.run { OperationPeriodPacket(data) }
     }
 }
