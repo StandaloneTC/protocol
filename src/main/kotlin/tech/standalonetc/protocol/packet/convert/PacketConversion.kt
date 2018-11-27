@@ -15,18 +15,18 @@ abstract class PacketConversion<T : Packet<*>> {
 
     open fun wrap(packet: Packet<*>) =
             when (packet) {
-                is BytePacket      -> byteConverters.tryConvert(packet)
-                is ByteArrayPacket -> byteArrayConverters.tryConvert(packet)
-                is DoublePacket    -> doubleConverters.tryConvert(packet)
-                is IntPacket       -> intConverters.tryConvert(packet)
-                is BooleanPacket   -> booleanConverters.tryConvert(packet)
-                is StringPacket    -> stringConverters.tryConvert(packet)
-                is LongPacket      -> longConverters.tryConvert(packet)
-                is CombinedPacket  -> combinedConverters.tryConvert(packet)
+                is BytePacket      -> byteConverters.convert(packet)
+                is ByteArrayPacket -> byteArrayConverters.convert(packet)
+                is DoublePacket    -> doubleConverters.convert(packet)
+                is IntPacket       -> intConverters.convert(packet)
+                is BooleanPacket   -> booleanConverters.convert(packet)
+                is StringPacket    -> stringConverters.convert(packet)
+                is LongPacket      -> longConverters.convert(packet)
+                is CombinedPacket  -> combinedConverters.convert(packet)
             }
 
 
-    private fun <U : Packet<*>> Iterable<PacketConverter<U, T>>.tryConvert(packet: U) =
+    private fun <U : Packet<*>> Iterable<PacketConverter<U, T>>.convert(packet: U) =
             iterator().let { iterator ->
                 var r: T? = null
                 while (r == null && iterator.hasNext()) {
@@ -36,6 +36,28 @@ abstract class PacketConversion<T : Packet<*>> {
                 }
                 r
             }
+
+    operator fun plus(other: PacketConversion<T>) = apply {
+        byteConverters.addAll(other.byteConverters)
+        byteArrayConverters.addAll(other.byteArrayConverters)
+        intConverters.addAll(other.intConverters)
+        doubleConverters.addAll(other.doubleConverters)
+        stringConverters.addAll(other.stringConverters)
+        booleanConverters.addAll(other.booleanConverters)
+        longConverters.addAll(other.longConverters)
+        combinedConverters.addAll(other.combinedConverters)
+    }
+
+    operator fun minus(other: PacketConversion<T>) = apply {
+        byteConverters.removeAll(other.byteConverters)
+        byteArrayConverters.removeAll(other.byteArrayConverters)
+        intConverters.removeAll(other.intConverters)
+        doubleConverters.removeAll(other.doubleConverters)
+        stringConverters.removeAll(other.stringConverters)
+        booleanConverters.removeAll(other.booleanConverters)
+        longConverters.removeAll(other.longConverters)
+        combinedConverters.removeAll(other.combinedConverters)
+    }
 
     object EmptyPacketConversion : PacketConversion<Packet<*>>()
 }
