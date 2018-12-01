@@ -30,6 +30,7 @@ class NetworkClient(
     private val plugin = StandalonePlugin()
 
     private val remoteHub = remoteHub(name) {
+        newMemberDetected = { if (debug) log("Found $this in LAN.") }
         plugins setup plugin
     }
 
@@ -78,7 +79,7 @@ class NetworkClient(
     fun broadcastPacket(packet: Packet<*>) {
         if (isClosed) throw IllegalStateException("NetworkClient has been closed.")
         remoteHub.broadcastBy<StandalonePlugin>(packet.toByteArray())
-        log("Broadcast a ${packet.javaClass.simpleName}.")
+        log("Broadcast a $packet.")
     }
 
 
@@ -142,8 +143,8 @@ class NetworkClient(
         }
 
         override fun onBroadcast(sender: String, payload: ByteArray) {
-            log("Received a packet from $sender.")
             if (sender != oppositeName) return
+            log("Received a packet from $sender.")
             val packet = payload.toPrimitivePacket()
             processPacket(packet)
         }

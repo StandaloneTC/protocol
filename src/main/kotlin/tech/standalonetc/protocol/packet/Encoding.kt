@@ -24,22 +24,12 @@ fun String.encode() =
  */
 fun Boolean.encode() = (if (this) 1 else 0).toByte().encode()
 
-/**
- * Encode using *ZigZag*
- */
-fun Int.encodeZigZag(): ByteArray = toLong().encodeZigZag()
-
 
 /**
  * Decode a [byteArray] into a [String]
  */
 fun decodeToString(byteArray: ByteArray) =
         String(byteArray.copyOfRange(1, byteArray[0].toInt() + 1))
-
-/**
- * Encode using *ZigZag*
- */
-fun Double.encodeZigZag() = toBits().encodeZigZag()
 
 /**
  * Encode a [Long] as a [ByteArray]
