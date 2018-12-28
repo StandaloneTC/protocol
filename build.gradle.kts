@@ -17,7 +17,7 @@ buildscript {
 }
 
 plugins {
-    kotlin("jvm") version "1.3.10"
+    kotlin("jvm") version "1.3.11"
     id("org.jetbrains.dokka") version "0.9.17"
 }
 
@@ -26,7 +26,7 @@ apply {
 }
 
 group = "tech.standalonetc"
-version = "0.1.8"
+version = "0.1.9"
 
 repositories {
     jcenter()

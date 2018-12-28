@@ -19,13 +19,13 @@ import java.util.logging.Logger
  */
 class NetworkClient(
         name: String,
-        private val oppositeName: String,
+        var oppositeName: String,
         workers: Int = 3,
         onRawPacketReceive: PacketCallback? = null,
         onPacketReceive: PacketCallback? = null
 ) : Closeable {
 
-    private val worker = Executors.newFixedThreadPool(workers + 1)
+    private val worker = Executors.newFixedThreadPool(workers)
 
     private val plugin = StandalonePlugin()
 
@@ -59,10 +59,6 @@ class NetworkClient(
     }
 
     init {
-        worker.submit {
-            while (!isClosed)
-                remoteHub.listen()
-        }
         repeat(workers) {
             worker.submit {
                 while (!isClosed)
