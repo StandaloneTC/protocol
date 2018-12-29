@@ -59,10 +59,10 @@ object RobotPacket {
     class ServoPositionPacket(id: Byte, val degree: Double) : DoublePacket(id, degree, Label.ServoPositionPacket)
 
     /**
-     * Encoder reset packet
-     * reset [id]'s encoder, if it is a motor
+     * Device reset packet
+     * try resetting [id]
      */
-    class EncoderResetPacket(id: Byte) : BytePacket(id, 0, Label.EncoderResetPacket)
+    class DeviceResetPacket(id: Byte) : BytePacket(id, 0, Label.DeviceResetPacket)
 
     /**
      * Gamepad data packet
@@ -169,13 +169,66 @@ object RobotPacket {
             IntPacket(BuiltinId.Environment, period, Label.OperationPeriodPacket)
 
 
+    /**
+     * Touch sensor data packet
+     */
+    class TouchSensorDataPacket(id: Byte,
+                                val bePressed: Boolean
+    ) : BooleanPacket(id, bePressed, Label.TouchSensorDataPacket)
+
+    /**
+     * Gyro data packet
+     */
+    class GyroDataPacket(
+            id: Byte,
+            val pitchRate: Double,
+            val yawRate: Double,
+            val rollRate: Double
+    ) : CombinedPacket(
+            id,
+            DoublePacket(id, pitchRate),
+            DoublePacket(id, yawRate),
+            DoublePacket(id, rollRate),
+            label = Label.GyroDataPacket
+    )
+
+    /**
+     * Color sensor data packet
+     */
+    class ColorSensorDataPacket(
+            id: Byte,
+            val r: Double,
+            val g: Double,
+            val b: Double,
+            val a: Double
+    ) : CombinedPacket(
+            id,
+            DoublePacket(id, r),
+            DoublePacket(id, g),
+            DoublePacket(id, b),
+            DoublePacket(id, a),
+            label = Label.ColorSensorDataPacket
+    )
+
+    /**
+     * Color sensor led packet
+     */
+    class ColorSensorLedPacket(
+            id: Byte,
+            enableLed: Boolean
+    ) : BooleanPacket(
+            id,
+            enableLed,
+            Label.ColorSensorLedPacket
+    )
+
     internal object Label {
         const val PwmEnablePacket: Byte = 0
         const val ContinuousServoPowerPacket: Byte = 1
         const val EncoderDataPacket: Byte = 2
         const val MotorPowerPacket: Byte = 3
         const val ServoPositionPacket: Byte = 4
-        const val EncoderResetPacket: Byte = 5
+        const val DeviceResetPacket: Byte = 5
         const val GamepadDataPacket: Byte = 6
         const val VoltageDataPacket: Byte = 7
         const val TelemetryDataPacket: Byte = 8
@@ -183,6 +236,10 @@ object RobotPacket {
         const val TelemetryClearPacket: Byte = 10
         const val OpModeInfoPacket: Byte = 11
         const val OperationPeriodPacket: Byte = 12
+        const val TouchSensorDataPacket: Byte = 13
+        const val GyroDataPacket: Byte = 14
+        const val ColorSensorDataPacket: Byte = 15
+        const val ColorSensorLedPacket: Byte = 16
     }
 
     /**
@@ -214,6 +271,8 @@ object RobotPacket {
         init {
             booleanConverters.apply {
                 add({ packet: BooleanPacket -> packet.PwmEnablePacket() }.toConverter())
+                add({ packet: BooleanPacket -> packet.TouchSensorDataPacket() }.toConverter())
+                add({ packet: BooleanPacket -> packet.ColorSensorLedPacket() }.toConverter())
             }
             doubleConverters.apply {
                 add({ packet: DoublePacket -> packet.ContinuousServoPowerPacket() }.toConverter())
@@ -236,6 +295,8 @@ object RobotPacket {
                 add({ packet: CombinedPacket -> packet.EncoderDataPacket() }.toConverter())
                 add({ packet: CombinedPacket -> packet.OpModeInfoPacket() }.toConverter())
                 add({ packet: CombinedPacket -> packet.GamepadDataPacket() }.toConverter())
+                add({ packet: CombinedPacket -> packet.GyroDataPacket() }.toConverter())
+                add({ packet: CombinedPacket -> packet.ColorSensorDataPacket() }.toConverter())
             }
         }
 
@@ -272,10 +333,10 @@ object RobotPacket {
                 takeIf { label == Label.ServoPositionPacket }?.run { ServoPositionPacket(id, data) }
 
         /**
-         * Try converting [BytePacket] into [EncoderResetPacket]
+         * Try converting [BytePacket] into [DeviceResetPacket]
          */
         fun BytePacket.EncoderResetPacket() =
-                takeIf { label == Label.EncoderResetPacket }?.run { EncoderResetPacket(id) }
+                takeIf { label == Label.DeviceResetPacket }?.run { DeviceResetPacket(id) }
 
         /**
          * Try converting [CombinedPacket] into [GamepadDataPacket]
@@ -332,7 +393,7 @@ object RobotPacket {
          */
         fun CombinedPacket.DeviceDescriptionPacket() =
                 takeIf { label == Label.DeviceDescriptionPacket }
-                        ?.run { DeviceDescriptionPacket(data[0].data as Byte, data[1].data as String) }
+                        ?.run { DeviceDescriptionPacket(data[0].castPacketData(), data[1].castPacketData()) }
 
         /**
          * Try converting [BytePacket] into [TelemetryClearPacket]
@@ -354,5 +415,44 @@ object RobotPacket {
         fun IntPacket.OperationPeriodPacket() =
                 takeIf { label == Label.OperationPeriodPacket }
                         ?.run { OperationPeriodPacket(data) }
+
+        /**
+         * Try converting [BooleanPacket] into [TouchSensorDataPacket]
+         */
+        fun BooleanPacket.TouchSensorDataPacket() =
+                takeIf { label == Label.TouchSensorDataPacket }
+                        ?.run { TouchSensorDataPacket(id, data) }
+
+        /**
+         * Try converting [CombinedPacket] into [GyroDataPacket]
+         */
+        fun CombinedPacket.GyroDataPacket() =
+                takeIf { label == Label.GyroDataPacket }
+                        ?.run {
+                            GyroDataPacket(id,
+                                    data[0].castPacketData(),
+                                    data[1].castPacketData(),
+                                    data[2].castPacketData())
+                        }
+
+        /**
+         * Try converting [CombinedPacket] into [ColorSensorDataPacket]
+         */
+        fun CombinedPacket.ColorSensorDataPacket() =
+                takeIf { label == Label.ColorSensorLedPacket }
+                        ?.run {
+                            ColorSensorDataPacket(id,
+                                    data[0].castPacketData(),
+                                    data[1].castPacketData(),
+                                    data[2].castPacketData(),
+                                    data[3].castPacketData())
+                        }
+
+        /**
+         * Try converting [BooleanPacket] into [ColorSensorLedPacket]
+         */
+        fun BooleanPacket.ColorSensorLedPacket() =
+                takeIf { label == Label.ColorSensorLedPacket }
+                        ?.run { ColorSensorLedPacket(id, data) }
     }
 }

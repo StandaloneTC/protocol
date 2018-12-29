@@ -25,7 +25,7 @@ class NetworkClient(
         onPacketReceive: PacketCallback? = null
 ) : Closeable {
 
-    private val worker = Executors.newFixedThreadPool(workers)
+    private val worker = Executors.newFixedThreadPool(workers * 2)
 
     private val plugin = StandalonePlugin()
 
@@ -39,6 +39,8 @@ class NetworkClient(
 
     private val rawPacketReceiveCallbacks =
             ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+
+    private var tcpPacketReceiveCallback: Packet<*>.() -> ByteArray = { ByteArray(0) }
 
     private var packetConversion: PacketConversion<*> = PacketConversion.EmptyPacketConversion
 
@@ -64,6 +66,10 @@ class NetworkClient(
                 while (!isClosed)
                     remoteHub()
             }
+            worker.submit {
+                while (!isClosed)
+                    remoteHub.listen()
+            }
         }
         onPacketReceive?.let { packetReceiveCallbacks.add(it) }
         onRawPacketReceive?.let { rawPacketReceiveCallbacks.add(it) }
@@ -78,6 +84,15 @@ class NetworkClient(
         log("Broadcast a $packet.")
     }
 
+    /**
+     * Send a packet.
+     */
+    fun sendPacket(packet: Packet<*>) {
+        if (isClosed) throw IllegalStateException("NetworkClient has been closed.")
+        remoteHub.call('X', oppositeName, packet.toByteArray())
+        log("Send a $packet.")
+    }
+
 
     /**
      * Add a packet callback.
@@ -88,6 +103,13 @@ class NetworkClient(
      * Remove a packet callback.
      */
     fun removePacketCallback(callback: PacketCallback) = packetReceiveCallbacks.remove(callback)
+
+    /**
+     * Set packet received listener
+     */
+    fun setTcpPacketReceiveCallback(callback: Packet<*>.() -> ByteArray) {
+        tcpPacketReceiveCallback = callback
+    }
 
     /**
      * Add a raw packet callback.
@@ -140,11 +162,17 @@ class NetworkClient(
 
         override fun onBroadcast(sender: String, payload: ByteArray) {
             if (sender != oppositeName) return
-            log("Received a packet from $sender.")
+            log("Received a udp packet from $sender.")
             val packet = payload.toPrimitivePacket()
             processPacket(packet)
         }
 
-    }
+        override fun onCall(sender: String, payload: ByteArray): ByteArray {
+            if (sender != oppositeName) return ByteArray(0)
+            log("Received a tcp packet from $sender.")
+            val packet = payload.toPrimitivePacket()
+            return tcpPacketReceiveCallback(packet)
+        }
 
+    }
 }
