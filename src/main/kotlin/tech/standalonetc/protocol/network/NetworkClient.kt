@@ -87,10 +87,11 @@ class NetworkClient(
     /**
      * Send a packet.
      */
-    fun sendPacket(packet: Packet<*>) {
+    fun sendPacket(packet: Packet<*>): ByteArray {
         if (isClosed) throw IllegalStateException("NetworkClient has been closed.")
-        remoteHub.call('X', oppositeName, packet.toByteArray())
-        log("Send a $packet.")
+        return remoteHub.call('X', oppositeName, packet.toByteArray()).also {
+            log("Send a $packet.")
+        }
     }
 
 
