@@ -1,23 +1,28 @@
 package tech.standalonetc.protocol.network
 
-import org.mechdancer.remote.builder.remoteHub
-import org.mechdancer.remote.core.RemotePlugin
-import org.mechdancer.remote.core.broadcastBy
+import org.mechdancer.remote.RemoteDsl.Companion.remoteHub
+import org.mechdancer.remote.modules.multicast.MulticastListener
+import org.mechdancer.remote.modules.tcpconnection.ShortConnectionListener
+import org.mechdancer.remote.modules.tcpconnection.listen
+import org.mechdancer.remote.modules.tcpconnection.say
+import org.mechdancer.remote.protocol.RemotePacket
+import org.mechdancer.remote.resources.Command
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.Packet
 import tech.standalonetc.protocol.packet.convert.PacketConversion
 import tech.standalonetc.protocol.packet.toByteArray
 import tech.standalonetc.protocol.packet.toPrimitivePacket
 import java.io.Closeable
+import java.net.Socket
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors
 import java.util.logging.Logger
 
 /**
- * A wrapper of [org.mechdancer.remote.core.RemoteHub]
+ * A wrapper of [org.mechdancer.remote.RemoteHub]
  * Provides scheduling possibilities.
  */
-class NetworkClient(
+class NetworkTools(
         name: String,
         var oppositeName: String,
         udpWorkers: Int = 3,
@@ -28,11 +33,10 @@ class NetworkClient(
 
     private val worker = Executors.newFixedThreadPool(udpWorkers + tcpWorkers)
 
-    private val plugin = StandalonePlugin()
-
     private val remoteHub = remoteHub(name) {
-        newMemberDetected = { if (debug) log("Found $this in LAN.") }
-        plugins setup plugin
+        newMemberDetected { log("Found $name in LAN.") }
+        inAddition { ShortConnectionProcessor() }
+        inAddition { MulticastProcessor() }
     }
 
     private val packetReceiveCallbacks =
@@ -41,7 +45,7 @@ class NetworkClient(
     private val rawPacketReceiveCallbacks =
             ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
-    private var tcpPacketReceiveCallback: Packet<*>.() -> ByteArray = { ByteArray(0) }
+    private var tcpPacketReceiveCallback: Packet<*>.() -> ByteArray? = { null }
 
     private var packetConversion: PacketConversion<*> = PacketConversion.EmptyPacketConversion
 
@@ -62,6 +66,7 @@ class NetworkClient(
     }
 
     init {
+        remoteHub.openAllNetworks()
         repeat(udpWorkers) {
             worker.submit {
                 while (!isClosed)
@@ -71,7 +76,7 @@ class NetworkClient(
         repeat(tcpWorkers) {
             worker.submit {
                 while (!isClosed)
-                    remoteHub.listen()
+                    remoteHub.accept()
             }
         }
         onPacketReceive?.let { packetReceiveCallbacks.add(it) }
@@ -82,19 +87,17 @@ class NetworkClient(
      * Broadcast a packet.
      */
     fun broadcastPacket(packet: Packet<*>) {
-        if (isClosed) throw IllegalStateException("NetworkClient has been closed.")
-        remoteHub.broadcastBy<StandalonePlugin>(packet.toByteArray())
+        if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
+        remoteHub.broadcast(Cmd, packet.toByteArray())
         log("Broadcast a $packet.")
     }
 
     /**
      * Send a packet.
      */
-    fun sendPacket(packet: Packet<*>): ByteArray {
-        if (isClosed) throw IllegalStateException("NetworkClient has been closed.")
-        return remoteHub.call('X', oppositeName, packet.toByteArray()).also {
-            log("Send a $packet.")
-        }
+    fun sendPacket(packet: Packet<*>) {
+        if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
+        remoteHub.connect(oppositeName, Cmd) { it say packet.toByteArray() }
     }
 
 
@@ -144,39 +147,57 @@ class NetworkClient(
         packetReceiveCallbacks.clear()
         rawPacketReceiveCallbacks.clear()
         worker.shutdown()
-        remoteHub.close()
-        logger.info("NetworkClient closed.")
+        logger.info("NetworkTools closed.")
     }
 
-    private inner class StandalonePlugin : RemotePlugin('X') {
-
-        fun processPacket(packet: Packet<*>) {
-            packetConversion.wrap(packet)?.let { p ->
-                packetReceiveCallbacks.forEach { it(p) }
-            } ?: run {
-                if (packet is CombinedPacket) {
-                    log("Unknown combined packet. Unpacking it.")
-                    packet.data.forEach { processPacket(it) }
-                } else {
-                    warn("Failed to wrap packet. Calling raw packet listener.")
-                    rawPacketReceiveCallbacks.forEach { it(packet) }
-                }
+    private fun processPacket(packet: Packet<*>) {
+        packetConversion.wrap(packet)?.let { p ->
+            packetReceiveCallbacks.forEach { it(p) }
+        } ?: run {
+            if (packet is CombinedPacket) {
+                log("Unknown combined packet. Unpacking it.")
+                packet.data.forEach { processPacket(it) }
+            } else {
+                warn("Failed to wrap packet. Calling raw packet listener.")
+                rawPacketReceiveCallbacks.forEach { it(packet) }
             }
         }
+    }
 
-        override fun onBroadcast(sender: String, payload: ByteArray) {
+    private object Cmd : Command {
+        override val id: Byte = 108
+    }
+
+    private inner class MulticastProcessor : MulticastListener {
+        override val interest: Collection<Byte> = listOf(Cmd.id)
+
+        override fun equals(other: Any?): Boolean = false
+        override fun hashCode(): Int = 0
+
+        override fun process(remotePacket: RemotePacket) {
+            val (sender, command, payload) = remotePacket
+            if (command != Cmd.id) return
             if (sender != oppositeName) return
             log("Received a udp packet from $sender.")
             val packet = payload.toPrimitivePacket()
             processPacket(packet)
         }
 
-        override fun onCall(sender: String, payload: ByteArray): ByteArray {
-            if (sender != oppositeName) return ByteArray(0)
-            log("Received a tcp packet from $sender.")
-            val packet = payload.toPrimitivePacket()
-            return tcpPacketReceiveCallback(packet)
+    }
+
+    private inner class ShortConnectionProcessor : ShortConnectionListener {
+        override val interest: Byte = Cmd.id
+
+        override fun equals(other: Any?): Boolean = false
+
+        override fun hashCode(): Int = 1
+
+        override fun process(client: String, socket: Socket) {
+            if (client != oppositeName) return
+            val packet = socket.listen().toPrimitivePacket()
+            tcpPacketReceiveCallback(packet)?.let { socket say it }
         }
 
     }
+
 }
