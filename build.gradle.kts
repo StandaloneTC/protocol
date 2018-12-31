@@ -31,7 +31,6 @@ version = "0.2.1"
 repositories {
     jcenter()
     mavenCentral()
-    maven("https://dl.bintray.com/mechdancer/maven/")
 }
 
 dependencies {
