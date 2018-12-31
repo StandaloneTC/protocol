@@ -1,10 +1,8 @@
 package tech.standalonetc.protocol.network
 
-import org.mechdancer.remote.RemoteDsl.Companion.remoteHub
 import org.mechdancer.remote.modules.multicast.MulticastListener
-import org.mechdancer.remote.modules.tcpconnection.ShortConnectionListener
-import org.mechdancer.remote.modules.tcpconnection.listen
-import org.mechdancer.remote.modules.tcpconnection.say
+import org.mechdancer.remote.modules.tcpconnection.LongConnectionServer
+import org.mechdancer.remote.presets.RemoteDsl.Companion.remoteHub
 import org.mechdancer.remote.protocol.RemotePacket
 import org.mechdancer.remote.resources.Command
 import tech.standalonetc.protocol.packet.CombinedPacket
@@ -13,37 +11,41 @@ import tech.standalonetc.protocol.packet.convert.PacketConversion
 import tech.standalonetc.protocol.packet.toByteArray
 import tech.standalonetc.protocol.packet.toPrimitivePacket
 import java.io.Closeable
-import java.net.Socket
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors
 import java.util.logging.Logger
+import kotlin.concurrent.thread
 
 /**
  * A wrapper of [org.mechdancer.remote.RemoteHub]
  * Provides scheduling possibilities.
  */
 class NetworkTools(
-        name: String,
-        var oppositeName: String,
-        udpWorkers: Int = 3,
-        tcpWorkers: Int = 5,
-        onRawPacketReceive: PacketCallback? = null,
-        onPacketReceive: PacketCallback? = null
+    name: String,
+    var oppositeName: String,
+    udpWorkers: Int = 3,
+    tcpWorkers: Int = 5,
+    onRawPacketReceive: PacketCallback? = null,
+    onPacketReceive: PacketCallback? = null
 ) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(udpWorkers + tcpWorkers)
 
+    private val longConnectionServer = LongConnectionServer {
+        if (it.isEmpty()) null
+        else tcpPacketReceiveCallback(it.toPrimitivePacket())
+    }
     private val remoteHub = remoteHub(name) {
         newMemberDetected { log("Found $name in LAN.") }
-        inAddition { ShortConnectionProcessor() }
+        inAddition { longConnectionServer }
         inAddition { MulticastProcessor() }
     }
 
     private val packetReceiveCallbacks =
-            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private val rawPacketReceiveCallbacks =
-            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private var tcpPacketReceiveCallback: Packet<*>.() -> ByteArray? = { null }
 
@@ -66,7 +68,24 @@ class NetworkTools(
     }
 
     init {
-        remoteHub.openAllNetworks()
+        thread {
+            remoteHub.openAllNetworks()
+            remoteHub.askEveryone()
+            val start = System.currentTimeMillis()
+            while (System.currentTimeMillis() - start <= 5000
+                && longConnectionServer.client == null
+            ) {
+
+                remoteHub.connect(oppositeName, Cmd) {
+
+                }
+
+                Thread.sleep(500)
+            }
+            if (longConnectionServer.client != oppositeName) {
+                throw RuntimeException("Failed to connect to opposite.")
+            }
+        }
         repeat(udpWorkers) {
             worker.submit {
                 while (!isClosed)
@@ -97,7 +116,7 @@ class NetworkTools(
      */
     fun sendPacket(packet: Packet<*>) {
         if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
-        remoteHub.connect(oppositeName, Cmd) { it say packet.toByteArray() }
+        longConnectionServer.call(packet.toByteArray())
     }
 
 
@@ -114,7 +133,7 @@ class NetworkTools(
     /**
      * Set packet received listener
      */
-    fun setTcpPacketReceiveCallback(callback: Packet<*>.() -> ByteArray) {
+    fun setTcpPacketReceiveCallback(callback: Packet<*>.() -> ByteArray?) {
         tcpPacketReceiveCallback = callback
     }
 
@@ -169,8 +188,7 @@ class NetworkTools(
     }
 
     private inner class MulticastProcessor : MulticastListener {
-        override val interest: Collection<Byte> = listOf(Cmd.id)
-
+        override val interest: Set<Command> = setOf(Cmd)
         override fun equals(other: Any?): Boolean = false
         override fun hashCode(): Int = 0
 
@@ -184,20 +202,4 @@ class NetworkTools(
         }
 
     }
-
-    private inner class ShortConnectionProcessor : ShortConnectionListener {
-        override val interest: Byte = Cmd.id
-
-        override fun equals(other: Any?): Boolean = false
-
-        override fun hashCode(): Int = 1
-
-        override fun process(client: String, socket: Socket) {
-            if (client != oppositeName) return
-            val packet = socket.listen().toPrimitivePacket()
-            tcpPacketReceiveCallback(packet)?.let { socket say it }
-        }
-
-    }
-
 }

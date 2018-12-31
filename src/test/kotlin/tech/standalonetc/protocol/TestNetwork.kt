@@ -4,7 +4,6 @@ import tech.standalonetc.protocol.network.NetworkTools
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.DoublePacket
 import tech.standalonetc.protocol.packet.Packet
-import tech.standalonetc.protocol.packet.toByteArray
 
 
 object C {
@@ -63,7 +62,7 @@ object E {
         e.setPacketConversion(RobotPacket.Conversion)
         e.setTcpPacketReceiveCallback {
             println(this)
-            ByteArray(0)
+            null
         }
         Thread.sleep(3000)
         e.sendPacket(DoublePacket(0, 233.33))
@@ -75,10 +74,9 @@ object F {
     fun main(args: Array<String>) {
         val f = NetworkTools("F", "E",
                 onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback)
-        f.debug = true
         f.setTcpPacketReceiveCallback {
             println(this)
-            toByteArray()
+            null
         }
         f.setPacketConversion(RobotPacket.Conversion)
     }
