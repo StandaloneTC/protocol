@@ -43,7 +43,7 @@ class NetworkTools(
 
     }
     private val remoteHub = remoteHub(name) {
-        newMemberDetected { log("Found $name in LAN.") }
+        newMemberDetected { log("Found $it in LAN.") }
         inAddition { longConnectionServer }
         inAddition { MulticastProcessor() }
     }
