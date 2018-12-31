@@ -29,8 +29,12 @@ group = "tech.standalonetc"
 version = "0.2.1"
 
 repositories {
+    mavenLocal()
     jcenter()
     mavenCentral()
+    flatDir {
+        dirs = setOf(rootProject.file("libs"))
+    }
 }
 
 dependencies {

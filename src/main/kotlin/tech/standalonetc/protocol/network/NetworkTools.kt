@@ -33,7 +33,14 @@ class NetworkTools(
 
     private val longConnectionServer = LongConnectionServer {
         if (it.isEmpty()) null
-        else tcpPacketReceiveCallback(it.toPrimitivePacket())
+        else
+            processPacket(
+                it.toPrimitivePacket(),
+                tcpPacketReceiveCallback,
+                tcpPacketReceiveCallback
+            ).first
+
+
     }
     private val remoteHub = remoteHub(name) {
         newMemberDetected { log("Found $name in LAN.") }
@@ -72,16 +79,10 @@ class NetworkTools(
             remoteHub.openAllNetworks()
             remoteHub.askEveryone()
             val start = System.currentTimeMillis()
-            while (System.currentTimeMillis() - start <= 5000
-                && longConnectionServer.client == null
-            ) {
+            while (System.currentTimeMillis() - start <= 50000//TODO
+                && longConnectionServer.connect(oppositeName) == null
+            ) Thread.sleep(500)
 
-                remoteHub.connect(oppositeName, Cmd) {
-
-                }
-
-                Thread.sleep(500)
-            }
             if (longConnectionServer.client != oppositeName) {
                 throw RuntimeException("Failed to connect to opposite.")
             }
@@ -163,25 +164,30 @@ class NetworkTools(
     override fun close() {
         if (isClosed) return
         isClosed = true
+        remoteHub
         packetReceiveCallbacks.clear()
         rawPacketReceiveCallbacks.clear()
         worker.shutdown()
         logger.info("NetworkTools closed.")
     }
 
-    private fun processPacket(packet: Packet<*>) {
+    private fun <R1, R2> processPacket(
+        packet: Packet<*>, raw: Packet<*>.() -> R1,
+        listener: Packet<*>.() -> R2
+    ): Pair<R1?, R2?> =
         packetConversion.wrap(packet)?.let { p ->
-            packetReceiveCallbacks.forEach { it(p) }
+            null to listener(p)
         } ?: run {
             if (packet is CombinedPacket) {
                 log("Unknown combined packet. Unpacking it.")
-                packet.data.forEach { processPacket(it) }
+                packet.data.map { processPacket(it, raw, listener) }
+                null to null
             } else {
                 warn("Failed to wrap packet. Calling raw packet listener.")
-                rawPacketReceiveCallbacks.forEach { it(packet) }
+                raw(packet) to null
             }
         }
-    }
+
 
     private object Cmd : Command {
         override val id: Byte = 108
@@ -198,7 +204,12 @@ class NetworkTools(
             if (sender != oppositeName) return
             log("Received a udp packet from $sender.")
             val packet = payload.toPrimitivePacket()
-            processPacket(packet)
+            processPacket(packet, {
+                rawPacketReceiveCallbacks.forEach { it(this) }
+            }) {
+
+                packetReceiveCallbacks.forEach { it(this) }
+            }
         }
 
     }
