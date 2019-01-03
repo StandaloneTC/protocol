@@ -29,17 +29,13 @@ group = "tech.standalonetc"
 version = "0.2.1"
 
 repositories {
-    mavenLocal()
     jcenter()
     mavenCentral()
-    flatDir {
-        dirs = setOf(rootProject.file("libs"))
-    }
 }
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
-    compile("org.mechdancer:remote:0.2.1-dev-6")
+    compile("org.mechdancer:remote:0.2.1-dev-7")
     compile("org.mechdancer:dependency:0.1.0-rc-1")
     testCompile("junit", "junit", "+")
 }
