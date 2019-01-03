@@ -31,12 +31,12 @@ version = "0.2.1"
 repositories {
     jcenter()
     mavenCentral()
+    maven("https://dl.bintray.com/mechdancer/maven")
 }
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
     compile("org.mechdancer:remote:0.2.1-dev-7")
-    compile("org.mechdancer:dependency:0.1.0-rc-1")
     testCompile("junit", "junit", "+")
 }
 
