@@ -17,16 +17,16 @@ import java.util.logging.Logger
 import kotlin.concurrent.thread
 
 /**
- * A wrapper of [org.mechdancer.remote.RemoteHub]
+ * A wrapper of [org.mechdancer.remote.presets.RemoteHub]
  * Provides scheduling possibilities.
  */
 class NetworkTools(
-    name: String,
-    var oppositeName: String,
-    udpWorkers: Int = 3,
-    tcpWorkers: Int = 5,
-    onRawPacketReceive: PacketCallback? = null,
-    onPacketReceive: PacketCallback? = null
+        name: String,
+        var oppositeName: String,
+        udpWorkers: Int = 3,
+        tcpWorkers: Int = 5,
+        onRawPacketReceive: PacketCallback? = null,
+        onPacketReceive: PacketCallback? = null
 ) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(udpWorkers + tcpWorkers)
@@ -35,9 +35,9 @@ class NetworkTools(
         if (it.isEmpty()) null
         else
             processPacket(
-                it.toPrimitivePacket(),
-                tcpPacketReceiveCallback,
-                tcpPacketReceiveCallback
+                    it.toPrimitivePacket(),
+                    tcpPacketReceiveCallback,
+                    tcpPacketReceiveCallback
             ).first
 
 
@@ -49,10 +49,10 @@ class NetworkTools(
     }
 
     private val packetReceiveCallbacks =
-        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private val rawPacketReceiveCallbacks =
-        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private var tcpPacketReceiveCallback: Packet<*>.() -> ByteArray? = { null }
 
@@ -63,6 +63,9 @@ class NetworkTools(
     private var isClosed = false
 
     var debug = false
+
+    val isConnectedToOpposite
+        get() = longConnectionServer.client == oppositeName
 
     private fun log(message: String) {
         if (debug)
@@ -78,14 +81,6 @@ class NetworkTools(
         thread {
             remoteHub.openAllNetworks()
             remoteHub.askEveryone()
-            val start = System.currentTimeMillis()
-            while (System.currentTimeMillis() - start <= 50000//TODO
-                && longConnectionServer.connect(oppositeName) == null
-            ) Thread.sleep(500)
-
-            if (longConnectionServer.client != oppositeName) {
-                throw RuntimeException("Failed to connect to opposite.")
-            }
         }
         repeat(udpWorkers) {
             worker.submit {
@@ -117,6 +112,7 @@ class NetworkTools(
      */
     fun sendPacket(packet: Packet<*>) {
         if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
+        if (!isConnectedToOpposite) throw IllegalStateException("Not yet connected to opposite.")
         longConnectionServer.call(packet.toByteArray())
     }
 
@@ -158,35 +154,43 @@ class NetworkTools(
     }
 
     /**
+     * Connect to opposite
+     */
+    fun connect(): Boolean {
+        if (isConnectedToOpposite) throw java.lang.IllegalStateException("Already connected to opposite.")
+        longConnectionServer.connect(oppositeName)
+        return isConnectedToOpposite
+    }
+
+    /**
      * Shutdown this client.
      * No side effects produced calling repeatedly.
      */
     override fun close() {
         if (isClosed) return
         isClosed = true
-        remoteHub
         packetReceiveCallbacks.clear()
         rawPacketReceiveCallbacks.clear()
-        worker.shutdown()
+        worker.shutdownNow()
         logger.info("NetworkTools closed.")
     }
 
     private fun <R1, R2> processPacket(
-        packet: Packet<*>, raw: Packet<*>.() -> R1,
-        listener: Packet<*>.() -> R2
+            packet: Packet<*>, raw: Packet<*>.() -> R1,
+            listener: Packet<*>.() -> R2
     ): Pair<R1?, R2?> =
-        packetConversion.wrap(packet)?.let { p ->
-            null to listener(p)
-        } ?: run {
-            if (packet is CombinedPacket) {
-                log("Unknown combined packet. Unpacking it.")
-                packet.data.map { processPacket(it, raw, listener) }
-                null to null
-            } else {
-                warn("Failed to wrap packet. Calling raw packet listener.")
-                raw(packet) to null
+            packetConversion.wrap(packet)?.let { p ->
+                null to listener(p)
+            } ?: run {
+                if (packet is CombinedPacket) {
+                    log("Unknown combined packet. Unpacking it.")
+                    packet.data.map { processPacket(it, raw, listener) }
+                    null to null
+                } else {
+                    warn("Failed to wrap packet. Calling raw packet listener.")
+                    raw(packet) to null
+                }
             }
-        }
 
 
     private object Cmd : Command {
