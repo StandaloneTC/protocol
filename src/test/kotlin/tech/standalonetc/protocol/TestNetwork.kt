@@ -64,8 +64,10 @@ object E {
             println(this)
             null
         }
-        Thread.sleep(3000)
-        e.sendPacket(DoublePacket(0, 233.33))
+        while (!e.connect());
+        println("Connected")
+        while (readLine()!!.run { true })
+            e.sendPacket(DoublePacket(0, 233.33))
     }
 }
 
@@ -79,5 +81,9 @@ object F {
             null
         }
         f.setPacketConversion(RobotPacket.Conversion)
+        while (!f.isConnectedToOpposite);
+        println("Connected")
+        while (readLine()!!.run { true })
+            f.sendPacket(DoublePacket(0, 88.88))
     }
 }

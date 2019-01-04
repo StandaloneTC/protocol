@@ -32,13 +32,13 @@ class NetworkTools(
     private val worker = Executors.newFixedThreadPool(udpWorkers + tcpWorkers)
 
     private val longConnectionServer = LongConnectionServer {
-        if (it.isEmpty()) null
+        if (it.contentEquals(byteArrayOf(2, 3, 3, 6, 6, 6))) null
         else
             processPacket(
                     it.toPrimitivePacket(),
                     tcpPacketReceiveCallback,
                     tcpPacketReceiveCallback
-            ).first
+            ).first ?: ByteArray(0)
 
 
     }
@@ -169,6 +169,7 @@ class NetworkTools(
     override fun close() {
         if (isClosed) return
         isClosed = true
+        longConnectionServer.call(byteArrayOf(2, 3, 3, 6, 6, 6))
         packetReceiveCallbacks.clear()
         rawPacketReceiveCallbacks.clear()
         worker.shutdownNow()
