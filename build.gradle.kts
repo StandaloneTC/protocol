@@ -35,7 +35,7 @@ repositories {
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
-    compile("org.mechdancer:remote:0.2.1-dev-7")
+    compile("org.mechdancer:remote:0.2.1-dev-8")
     testCompile("junit", "junit", "+")
 }
 

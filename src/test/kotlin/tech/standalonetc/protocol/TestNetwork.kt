@@ -4,7 +4,6 @@ import tech.standalonetc.protocol.network.NetworkTools
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.DoublePacket
 import tech.standalonetc.protocol.packet.Packet
-import kotlin.concurrent.thread
 
 
 object C {
@@ -60,9 +59,6 @@ object E {
     fun main(args: Array<String>) {
         val e = NetworkTools("E", "F",
                 onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback)
-        Runtime.getRuntime().addShutdownHook(thread(false) {
-            e.close()
-        })
         e.setPacketConversion(RobotPacket.Conversion)
         e.setTcpPacketReceiveCallback {
             println(this)
@@ -70,6 +66,7 @@ object E {
         }
         while (!e.connect());
         println("Connected")
+        e.close()
         while (readLine()!!.run { true })
             e.sendPacket(DoublePacket(0, 233.33))
     }
@@ -80,9 +77,6 @@ object F {
     fun main(args: Array<String>) {
         val f = NetworkTools("F", "E",
                 onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback)
-        Runtime.getRuntime().addShutdownHook(thread(false) {
-            f.close()
-        })
         f.setTcpPacketReceiveCallback {
             println(this)
             null

@@ -1,10 +1,13 @@
 package tech.standalonetc.protocol.network
 
+import org.mechdancer.dependency.must
 import org.mechdancer.remote.modules.multicast.MulticastListener
-import org.mechdancer.remote.modules.tcpconnection.LongConnectionServer
+import org.mechdancer.remote.modules.tcpconnection.listen
+import org.mechdancer.remote.modules.tcpconnection.say
 import org.mechdancer.remote.presets.RemoteDsl.Companion.remoteHub
 import org.mechdancer.remote.protocol.RemotePacket
 import org.mechdancer.remote.resources.Command
+import org.mechdancer.remote.resources.LongConnectionSockets
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.Packet
 import tech.standalonetc.protocol.packet.convert.PacketConversion
@@ -31,20 +34,8 @@ class NetworkTools(
 
     private val worker = Executors.newFixedThreadPool(udpWorkers + tcpWorkers)
 
-    private val longConnectionServer = LongConnectionServer {
-        if (it.contentEquals(byteArrayOf(2, 3, 3, 6, 6, 6))) null
-        else
-            processPacket(
-                    it.toPrimitivePacket(),
-                    tcpPacketReceiveCallback,
-                    tcpPacketReceiveCallback
-            ).first ?: ByteArray(0)
-
-
-    }
     private val remoteHub = remoteHub(name) {
         newMemberDetected { log("Found $it in LAN.") }
-        inAddition { longConnectionServer }
         inAddition { MulticastProcessor() }
     }
 
@@ -62,10 +53,20 @@ class NetworkTools(
 
     private var isClosed = false
 
+    private val longConnections = remoteHub.components.must<LongConnectionSockets>().view
+
+    private val shutdownSign = byteArrayOf(8, 8)
+
+    /**
+     * Whether print log
+     */
     var debug = false
 
+    /**
+     * Returns `true` if has connected to opposite using *long connection*
+     */
     val isConnectedToOpposite
-        get() = longConnectionServer.client == oppositeName
+        get() = longConnections.containsKey(oppositeName)
 
     private fun log(message: String) {
         if (debug)
@@ -81,6 +82,22 @@ class NetworkTools(
         thread {
             remoteHub.openAllNetworks()
             remoteHub.askEveryone()
+            while (!isConnectedToOpposite);
+            while (isConnectedToOpposite && !isClosed)
+                runCatching {
+                    remoteHub.processConnection(oppositeName) {
+                        runCatching { it.listen() }.getOrNull()?.run {
+                            when {
+                                isEmpty()                   -> null
+                                contentEquals(shutdownSign) -> remoteHub.disconnect(oppositeName).run { null }
+                                else                        -> processPacket(toPrimitivePacket(), tcpPacketReceiveCallback, tcpPacketReceiveCallback)
+                            }
+                        }
+                    }
+                }.onFailure {
+                    if (debug)
+                        logger.throwing(javaClass.name, "processConnection", it)
+                }
         }
         repeat(udpWorkers) {
             worker.submit {
@@ -90,8 +107,9 @@ class NetworkTools(
         }
         repeat(tcpWorkers) {
             worker.submit {
-                while (!isClosed)
+                while (!isClosed) {
                     remoteHub.accept()
+                }
             }
         }
         onPacketReceive?.let { packetReceiveCallbacks.add(it) }
@@ -113,7 +131,9 @@ class NetworkTools(
     fun sendPacket(packet: Packet<*>) {
         if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
         if (!isConnectedToOpposite) throw IllegalStateException("Not yet connected to opposite.")
-        longConnectionServer.call(packet.toByteArray())
+        remoteHub.processConnection(oppositeName) {
+            it say packet.toByteArray()
+        }
     }
 
 
@@ -157,19 +177,23 @@ class NetworkTools(
      * Connect to opposite
      */
     fun connect(): Boolean {
-        if (isConnectedToOpposite) throw java.lang.IllegalStateException("Already connected to opposite.")
-        longConnectionServer.connect(oppositeName)
+        if (isConnectedToOpposite) throw IllegalStateException("Already connected to opposite.")
+        remoteHub.connectKeeping(oppositeName)
         return isConnectedToOpposite
     }
 
     /**
-     * Shutdown this client.
+     * Shutdown this client
+     *
      * No side effects produced calling repeatedly.
      */
     override fun close() {
         if (isClosed) return
+        if (isConnectedToOpposite)
+            remoteHub.processConnection(oppositeName) { it say shutdownSign }
+        //Must after `processConnection` and before `remoteHub.close`
         isClosed = true
-        longConnectionServer.call(byteArrayOf(2, 3, 3, 6, 6, 6))
+        remoteHub.close()
         packetReceiveCallbacks.clear()
         rawPacketReceiveCallbacks.clear()
         worker.shutdownNow()
