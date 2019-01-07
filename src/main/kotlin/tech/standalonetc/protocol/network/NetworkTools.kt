@@ -25,7 +25,7 @@ import kotlin.concurrent.thread
  */
 class NetworkTools(
         name: String,
-        var oppositeName: String,
+        var oppositeName: String? = null,
         udpWorkers: Int = 3,
         tcpWorkers: Int = 5,
         onRawPacketReceive: PacketCallback? = null,
@@ -85,12 +85,14 @@ class NetworkTools(
             while (!isConnectedToOpposite);
             while (isConnectedToOpposite && !isClosed)
                 runCatching {
-                    remoteHub.processConnection(oppositeName) {
-                        runCatching { it.listen() }.getOrNull()?.run {
-                            when {
-                                isEmpty()                   -> null
-                                contentEquals(shutdownSign) -> remoteHub.disconnect(oppositeName).run { null }
-                                else                        -> processPacket(toPrimitivePacket(), tcpPacketReceiveCallback, tcpPacketReceiveCallback)
+                    oppositeName?.let { opposite ->
+                        remoteHub.processConnection(opposite) {
+                            runCatching { it.listen() }.getOrNull()?.run {
+                                when {
+                                    isEmpty()                   -> null
+                                    contentEquals(shutdownSign) -> remoteHub.disconnect(opposite).run { null }
+                                    else                        -> processPacket(toPrimitivePacket(), tcpPacketReceiveCallback, tcpPacketReceiveCallback)
+                                }
                             }
                         }
                     }
@@ -131,7 +133,8 @@ class NetworkTools(
     fun sendPacket(packet: Packet<*>) {
         if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
         if (!isConnectedToOpposite) throw IllegalStateException("Not yet connected to opposite.")
-        remoteHub.processConnection(oppositeName) {
+        if (oppositeName == null) throw IllegalArgumentException("Opposite not defined.")
+        remoteHub.processConnection(oppositeName!!) {
             it say packet.toByteArray()
         }
     }
@@ -178,7 +181,8 @@ class NetworkTools(
      */
     fun connect(): Boolean {
         if (isConnectedToOpposite) throw IllegalStateException("Already connected to opposite.")
-        remoteHub.connectKeeping(oppositeName)
+        if (oppositeName == null) throw IllegalArgumentException("Opposite not defined.")
+        remoteHub.connectKeeping(oppositeName!!)
         return isConnectedToOpposite
     }
 
@@ -190,7 +194,7 @@ class NetworkTools(
     override fun close() {
         if (isClosed) return
         if (isConnectedToOpposite)
-            remoteHub.processConnection(oppositeName) { it say shutdownSign }
+            remoteHub.processConnection(oppositeName!!) { it say shutdownSign }
         //Must after `processConnection` and before `remoteHub.close`
         isClosed = true
         remoteHub.close()
@@ -230,7 +234,7 @@ class NetworkTools(
         override fun process(remotePacket: RemotePacket) {
             val (sender, command, payload) = remotePacket
             if (command != Cmd.id) return
-            if (sender != oppositeName) return
+            if (oppositeName != null && sender != oppositeName) return
             log("Received a udp packet from $sender.")
             val packet = payload.toPrimitivePacket()
             processPacket(packet, {
