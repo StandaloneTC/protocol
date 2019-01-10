@@ -2,6 +2,7 @@ package tech.standalonetc.protocol.network
 
 import org.mechdancer.dependency.must
 import org.mechdancer.remote.modules.multicast.MulticastListener
+import org.mechdancer.remote.modules.tcpconnection.ConnectionListener
 import org.mechdancer.remote.modules.tcpconnection.listen
 import org.mechdancer.remote.modules.tcpconnection.say
 import org.mechdancer.remote.presets.RemoteDsl.Companion.remoteHub
@@ -14,6 +15,7 @@ import tech.standalonetc.protocol.packet.convert.PacketConversion
 import tech.standalonetc.protocol.packet.toByteArray
 import tech.standalonetc.protocol.packet.toPrimitivePacket
 import java.io.Closeable
+import java.net.Socket
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors
 import java.util.logging.Logger
@@ -91,7 +93,12 @@ class NetworkTools(
                                 when {
                                     isEmpty()                   -> null
                                     contentEquals(shutdownSign) -> remoteHub.disconnect(opposite).run { null }
-                                    else                        -> processPacket(toPrimitivePacket(), tcpPacketReceiveCallback, tcpPacketReceiveCallback)
+                                    else                        ->
+                                        processPacket(toPrimitivePacket(),
+                                                tcpPacketReceiveCallback,
+                                                tcpPacketReceiveCallback)/*.apply {
+                                            first ?: second?.let { result -> it say result }
+                                        }*/
                                 }
                             }
                         }
@@ -130,15 +137,23 @@ class NetworkTools(
     /**
      * Send a packet.
      */
-    fun sendPacket(packet: Packet<*>) {
+    fun sendPacket(packet: Packet<*>, useLongConnection: Boolean = true): ByteArray? {
         if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
-        if (!isConnectedToOpposite) throw IllegalStateException("Not yet connected to opposite.")
         if (oppositeName == null) throw IllegalArgumentException("Opposite not defined.")
-        remoteHub.processConnection(oppositeName!!) {
-            it say packet.toByteArray()
-        }
-    }
+        return if (useLongConnection) {
+            if (!isConnectedToOpposite) throw IllegalStateException("Not yet connected to opposite.")
+            remoteHub.processConnection(oppositeName!!) {
+                it say packet.toByteArray()
+                it.listen()
+            }
+        } else
+            remoteHub.connect(oppositeName!!, Cmd) {
+                it say packet.toByteArray()
+                it.listen()
+            }
 
+
+    }
 
     /**
      * Add a packet callback.
@@ -224,6 +239,22 @@ class NetworkTools(
 
     private object Cmd : Command {
         override val id: Byte = 108
+    }
+
+    private inner class ConnectionProcessor : ConnectionListener {
+        override val interest: Command = Cmd
+
+        override fun equals(other: Any?): Boolean = false
+
+        override fun hashCode(): Int = 1
+
+        override fun process(client: String, socket: Socket): Boolean {
+            if (oppositeName != null && client != oppositeName) return false
+            processPacket(socket.listen().toPrimitivePacket(), tcpPacketReceiveCallback, tcpPacketReceiveCallback).apply {
+                first ?: second?.let { result -> socket say result }
+                return true
+            }
+        }
     }
 
     private inner class MulticastProcessor : MulticastListener {

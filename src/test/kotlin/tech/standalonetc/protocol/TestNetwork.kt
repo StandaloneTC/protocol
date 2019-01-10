@@ -4,6 +4,7 @@ import tech.standalonetc.protocol.network.NetworkTools
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.DoublePacket
 import tech.standalonetc.protocol.packet.Packet
+import tech.standalonetc.protocol.packet.toByteArray
 
 
 object C {
@@ -62,11 +63,10 @@ object E {
         e.setPacketConversion(RobotPacket.Conversion)
         e.setTcpPacketReceiveCallback {
             println(this)
-            null
+            toByteArray()
         }
         while (!e.connect());
         println("Connected")
-        e.close()
         while (readLine()!!.run { true })
             e.sendPacket(DoublePacket(0, 233.33))
     }
