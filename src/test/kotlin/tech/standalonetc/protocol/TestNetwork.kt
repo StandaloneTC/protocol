@@ -4,7 +4,6 @@ import tech.standalonetc.protocol.network.NetworkTools
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.DoublePacket
 import tech.standalonetc.protocol.packet.Packet
-import tech.standalonetc.protocol.packet.toByteArray
 
 
 object C {
@@ -29,8 +28,10 @@ object C {
 object A {
     @JvmStatic
     fun main(args: Array<String>) {
-        val a = NetworkTools("A", "B",
-                onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback)
+        val a = NetworkTools(
+            "A", "B",
+            onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
+        )
         a.setPacketConversion(RobotPacket.Conversion)
         while (true) {
             a.broadcastPacket(RobotPacket.DeviceDescriptionPacket(0, "foo"))
@@ -45,46 +46,14 @@ object A {
 object B {
     @JvmStatic
     fun main(args: Array<String>) {
-        val b = NetworkTools("B", "A",
-                onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback)
+        val b = NetworkTools(
+            "B", "A",
+            onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
+        )
         b.setPacketConversion(RobotPacket.Conversion)
         while (true) {
             b.broadcastPacket(DoublePacket(9, 233.233))
             Thread.sleep(3000)
         }
-    }
-}
-
-object E {
-    @JvmStatic
-    fun main(args: Array<String>) {
-        val e = NetworkTools("E", "F",
-                onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback)
-        e.setPacketConversion(RobotPacket.Conversion)
-        e.setTcpPacketReceiveCallback {
-            println(this)
-            toByteArray()
-        }
-        while (!e.connect());
-        println("Connected")
-        while (readLine()!!.run { true })
-            e.sendPacket(DoublePacket(0, 233.33))
-    }
-}
-
-object F {
-    @JvmStatic
-    fun main(args: Array<String>) {
-        val f = NetworkTools("F", "E",
-                onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback)
-        f.setTcpPacketReceiveCallback {
-            println(this)
-            null
-        }
-        f.setPacketConversion(RobotPacket.Conversion)
-        while (!f.isConnectedToOpposite);
-        println("Connected")
-        while (readLine()!!.run { true })
-            f.sendPacket(DoublePacket(0, 88.88))
     }
 }
