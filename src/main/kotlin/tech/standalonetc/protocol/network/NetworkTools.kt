@@ -70,6 +70,8 @@ class NetworkTools(
     }
 
     init {
+        remoteHub.openAllNetworks()
+        oppositeName?.let { remoteHub.ask(it) }
         repeat(udpWorkers) {
             worker.submit {
                 while (!isClosed)

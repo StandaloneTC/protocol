@@ -4,6 +4,8 @@ import tech.standalonetc.protocol.network.NetworkTools
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.DoublePacket
 import tech.standalonetc.protocol.packet.Packet
+import tech.standalonetc.protocol.packet.encode
+import kotlin.random.Random
 
 
 object C {
@@ -54,6 +56,42 @@ object B {
         while (true) {
             b.broadcastPacket(DoublePacket(9, 233.233))
             Thread.sleep(3000)
+        }
+    }
+}
+
+object D {
+    @JvmStatic
+    fun main(args: Array<String>) {
+        val d = NetworkTools(
+            "D", "E",
+            onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
+        )
+        d.setPacketConversion(RobotPacket.Conversion)
+        while (true) {
+            readLine()
+            d.sendPacket(
+                RobotPacket.DeviceDescriptionPacket(
+                    Random.nextInt(0, 127).toByte(),
+                    String(Random.nextBytes(10))
+                )
+            ).let {
+                println(it)
+            }
+        }
+    }
+}
+
+
+object E {
+    @JvmStatic
+    fun main(args: Array<String>) {
+        val e = NetworkTools("E", "D")
+        e.setTcpPacketReceiveCallback {
+            println(this)
+            if (this is RobotPacket.DeviceDescriptionPacket)
+                Random.nextBoolean().encode()
+            else null
         }
     }
 }
