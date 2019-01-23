@@ -23,12 +23,12 @@ import java.util.logging.Logger
  * Provides scheduling possibilities.
  */
 class NetworkTools(
-    name: String,
-    var oppositeName: String? = null,
-    udpWorkers: Int = 3,
-    tcpWorkers: Int = 5,
-    onRawPacketReceive: PacketCallback? = null,
-    onPacketReceive: PacketCallback? = null
+        name: String,
+        var oppositeName: String? = null,
+        udpWorkers: Int = 1,
+        tcpWorkers: Int = 1,
+        onRawPacketReceive: PacketCallback? = null,
+        onPacketReceive: PacketCallback? = null
 ) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(udpWorkers + tcpWorkers)
@@ -40,10 +40,10 @@ class NetworkTools(
     }
 
     private val packetReceiveCallbacks =
-        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private val rawPacketReceiveCallbacks =
-        ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
+            ConcurrentSkipListSet<PacketCallback> { a, b -> a.hashCode().compareTo(b.hashCode()) }
 
     private var tcpPacketReceiveCallback: Packet<*>.() -> ByteArray? = { null }
 
@@ -71,7 +71,6 @@ class NetworkTools(
 
     init {
         remoteHub.openAllNetworks()
-        oppositeName?.let { remoteHub.ask(it) }
         repeat(udpWorkers) {
             worker.submit {
                 while (!isClosed)
@@ -148,6 +147,17 @@ class NetworkTools(
     }
 
     /**
+     * Find opposite address blocking
+     *
+     * To ensure that the first packet can be received.
+     */
+    fun findOpposite() {
+        if (oppositeName == null) throw IllegalStateException("Opposite name can not be null.")
+        while (remoteHub[oppositeName!!]?.address == null)
+            remoteHub.ask(oppositeName!!)
+    }
+
+    /**
      * Shutdown this client
      *
      * No side effects produced calling repeatedly.
@@ -163,21 +173,21 @@ class NetworkTools(
     }
 
     private fun <R1, R2> processPacket(
-        packet: Packet<*>, raw: Packet<*>.() -> R1,
-        listener: Packet<*>.() -> R2
+            packet: Packet<*>, raw: Packet<*>.() -> R1,
+            listener: Packet<*>.() -> R2
     ): Pair<R1?, R2?> =
-        packetConversion.wrap(packet)?.let { p ->
-            null to listener(p)
-        } ?: run {
-            if (packet is CombinedPacket) {
-                log("Unknown combined packet. Unpacking it.")
-                packet.data.map { processPacket(it, raw, listener) }
-                null to null
-            } else {
-                warn("Failed to wrap packet. Calling raw packet listener.")
-                raw(packet) to null
+            packetConversion.wrap(packet)?.let { p ->
+                null to listener(p)
+            } ?: run {
+                if (packet is CombinedPacket) {
+                    log("Unknown combined packet. Unpacking it.")
+                    packet.data.map { processPacket(it, raw, listener) }
+                    null to null
+                } else {
+                    warn("Failed to wrap packet. Calling raw packet listener.")
+                    raw(packet) to null
+                }
             }
-        }
 
 
     private object Cmd : Command {
@@ -194,9 +204,9 @@ class NetworkTools(
         override fun process(client: String, socket: Socket): Boolean {
             if (oppositeName != null && client != oppositeName) return false
             processPacket(
-                socket.listen().toPrimitivePacket(),
-                tcpPacketReceiveCallback,
-                tcpPacketReceiveCallback
+                    socket.listen().toPrimitivePacket(),
+                    tcpPacketReceiveCallback,
+                    tcpPacketReceiveCallback
             ).apply {
                 first ?: second?.let { result -> socket say result }
                 return true

@@ -68,6 +68,7 @@ object D {
             onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
         )
         d.setPacketConversion(RobotPacket.Conversion)
+        d.findOpposite()
         while (true) {
             readLine()
             d.sendPacket(
@@ -76,7 +77,7 @@ object D {
                     String(Random.nextBytes(10))
                 )
             ).let {
-                println(it)
+                println(it?.joinToString())
             }
         }
     }
@@ -87,6 +88,7 @@ object E {
     @JvmStatic
     fun main(args: Array<String>) {
         val e = NetworkTools("E", "D")
+        e.setPacketConversion(RobotPacket.Conversion)
         e.setTcpPacketReceiveCallback {
             println(this)
             if (this is RobotPacket.DeviceDescriptionPacket)

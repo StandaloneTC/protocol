@@ -26,7 +26,7 @@ apply {
 }
 
 group = "tech.standalonetc"
-version = "0.2.1"
+version = "0.2.2"
 
 repositories {
     jcenter()
@@ -35,7 +35,7 @@ repositories {
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
-    compile("org.mechdancer:remote:0.2.1-dev-9")
+    compile("org.mechdancer:remote:0.2.1-dev-10")
     testCompile("junit", "junit", "+")
 }
 
