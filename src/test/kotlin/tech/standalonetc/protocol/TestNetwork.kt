@@ -1,5 +1,6 @@
 package tech.standalonetc.protocol
 
+import kotlinx.coroutines.runBlocking
 import tech.standalonetc.protocol.network.NetworkTools
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.DoublePacket
@@ -68,7 +69,9 @@ object D {
             onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
         )
         d.setPacketConversion(RobotPacket.Conversion)
-        d.findOpposite()
+        runBlocking {
+            d.findOpposite()
+        }
         while (true) {
             readLine()
             d.sendPacket(
