@@ -17,7 +17,7 @@ buildscript {
 }
 
 plugins {
-    kotlin("jvm") version "1.3.11"
+    kotlin("jvm") version "1.3.20"
     id("org.jetbrains.dokka") version "0.9.17"
 }
 
@@ -35,7 +35,7 @@ repositories {
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
-    compile("org.mechdancer:remote:0.2.1-dev-10")
+    compile("org.mechdancer:remote:0.2.1-dev-11")
     testCompile("junit", "junit", "+")
 }
 
