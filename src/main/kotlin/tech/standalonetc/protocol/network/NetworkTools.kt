@@ -1,5 +1,8 @@
 package tech.standalonetc.protocol.network
 
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.mechdancer.remote.modules.multicast.MulticastListener
 import org.mechdancer.remote.modules.tcpconnection.ConnectionListener
 import org.mechdancer.remote.modules.tcpconnection.listen
@@ -7,16 +10,19 @@ import org.mechdancer.remote.modules.tcpconnection.say
 import org.mechdancer.remote.presets.RemoteDsl.Companion.remoteHub
 import org.mechdancer.remote.protocol.RemotePacket
 import org.mechdancer.remote.resources.Command
+import tech.standalonetc.protocol.RobotPacket
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.Packet
 import tech.standalonetc.protocol.packet.convert.PacketConversion
 import tech.standalonetc.protocol.packet.toByteArray
 import tech.standalonetc.protocol.packet.toPrimitivePacket
 import java.io.Closeable
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors
 import java.util.logging.Logger
+import kotlin.coroutines.resume
 
 /**
  * A wrapper of [org.mechdancer.remote.presets.RemoteHub]
@@ -47,7 +53,7 @@ class NetworkTools(
 
     private var tcpPacketReceiveCallback: Packet<*>.() -> ByteArray? = { null }
 
-    private var packetConversion: PacketConversion<*> = PacketConversion.EmptyPacketConversion
+    private var packetConversion: PacketConversion<*> = RobotPacket.Conversion
 
     private val logger = Logger.getLogger(javaClass.name)
 
@@ -151,10 +157,20 @@ class NetworkTools(
      *
      * To ensure that the first packet can be received.
      */
-    fun findOpposite() {
+    suspend fun findOpposite() = suspendCancellableCoroutine<Unit> {
+        while (askOppositeAddress() != null);
+        it.resume(Unit)
+    }
+
+    /**
+     * Ask opposite's address
+     *
+     * @return address
+     */
+    fun askOppositeAddress(): InetSocketAddress? {
         if (oppositeName == null) throw IllegalStateException("Opposite name can not be null.")
-        while (remoteHub[oppositeName!!]?.address == null)
-            remoteHub.ask(oppositeName!!)
+        remoteHub.ask(oppositeName!!)
+        return remoteHub[oppositeName!!]?.address
     }
 
     /**
@@ -203,6 +219,7 @@ class NetworkTools(
 
         override fun process(client: String, socket: Socket): Boolean {
             if (oppositeName != null && client != oppositeName) return false
+            log("Received a tcp packet from opposite.")
             processPacket(
                     socket.listen().toPrimitivePacket(),
                     tcpPacketReceiveCallback,
@@ -222,14 +239,15 @@ class NetworkTools(
         override fun process(remotePacket: RemotePacket) {
             val (sender, _, payload) = remotePacket
             if (oppositeName != null && sender != oppositeName) return
-            log("Received a udp packet from $sender.")
-            val packet = payload.toPrimitivePacket()
-            processPacket(packet, {
-                rawPacketReceiveCallbacks.forEach { it(this) }
-            }) {
-                packetReceiveCallbacks.forEach { it(this) }
+            GlobalScope.launch {
+                log("Received a udp packet from opposite.")
+                val packet = payload.toPrimitivePacket()
+                processPacket(packet, {
+                    rawPacketReceiveCallbacks.forEach { it(this) }
+                }) {
+                    packetReceiveCallbacks.forEach { it(this) }
+                }
             }
         }
-
     }
 }
