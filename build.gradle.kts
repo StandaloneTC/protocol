@@ -1,7 +1,5 @@
 import com.novoda.gradle.release.PublishExtension
-import org.jetbrains.dokka.DokkaConfiguration
 import org.jetbrains.dokka.gradle.DokkaTask
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
@@ -26,7 +24,7 @@ apply {
 }
 
 group = "tech.standalonetc"
-version = "0.2.3"
+version = "0.2.4"
 
 repositories {
     jcenter()
@@ -34,10 +32,12 @@ repositories {
 }
 
 dependencies {
-    compile(kotlin("stdlib-jdk8"))
-    compile("org.mechdancer:remote:0.2.1-dev-11")
-    compile ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1")
-    testCompile("junit", "junit", "+")
+    implementation(kotlin("stdlib-jdk8"))
+    implementation("org.mechdancer:remote:0.2.1-dev-12")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1")
+
+    testImplementation("junit", "junit", "4.12")
+    testImplementation("org.mechdancer:common-extension-log4j:v0.1.0-1")
 }
 
 tasks.withType<KotlinCompile> {

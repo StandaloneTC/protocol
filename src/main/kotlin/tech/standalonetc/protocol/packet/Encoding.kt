@@ -57,3 +57,12 @@ fun Int.encode(): ByteArray = ByteBuffer.allocate(4).putInt(this).array()
  * Decode a [ByteArray] into a [Int]
  */
 fun ByteArray.decodeToInt() = ByteBuffer.wrap(this).int
+
+/**
+ * Decode a [ByteArray] into a [Boolean]
+ */
+fun ByteArray.decodeToBoolean() = when (firstOrNull()?.toInt()) {
+    1    -> true
+    0    -> false
+    else -> throw RuntimeException("Unexpected data")
+}

@@ -1,6 +1,8 @@
 package tech.standalonetc.protocol
 
 import kotlinx.coroutines.runBlocking
+import org.apache.log4j.Level
+import org.mechdancer.common.extension.log4j.loggerWrapper
 import tech.standalonetc.protocol.network.NetworkTools
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.DoublePacket
@@ -32,9 +34,16 @@ object A {
     @JvmStatic
     fun main(args: Array<String>) {
         val a = NetworkTools(
-            "A", "B",
-            onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
+                "A", "B",
+                onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback,
+                loggerConfig = {
+                    loggerWrapper {
+                        level = Level.ALL
+                        console()
+                    }(this)
+                }
         )
+
         a.setPacketConversion(RobotPacket.Conversion)
         while (true) {
             a.broadcastPacket(RobotPacket.DeviceDescriptionPacket(0, "foo"))
@@ -50,8 +59,8 @@ object B {
     @JvmStatic
     fun main(args: Array<String>) {
         val b = NetworkTools(
-            "B", "A",
-            onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
+                "B", "A",
+                onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
         )
         b.setPacketConversion(RobotPacket.Conversion)
         while (true) {
@@ -65,8 +74,8 @@ object D {
     @JvmStatic
     fun main(args: Array<String>) {
         val d = NetworkTools(
-            "D", "E",
-            onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
+                "D", "E",
+                onRawPacketReceive = C.rawCallback, onPacketReceive = C.callback
         )
         d.setPacketConversion(RobotPacket.Conversion)
         runBlocking {
@@ -75,10 +84,10 @@ object D {
         while (true) {
             readLine()
             d.sendPacket(
-                RobotPacket.DeviceDescriptionPacket(
-                    Random.nextInt(0, 127).toByte(),
-                    String(Random.nextBytes(10))
-                )
+                    RobotPacket.DeviceDescriptionPacket(
+                            Random.nextInt(0, 127).toByte(),
+                            String(Random.nextBytes(10))
+                    )
             ).let {
                 println(it?.joinToString())
             }

@@ -2,14 +2,15 @@ package tech.standalonetc.protocol.network
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import org.mechdancer.remote.modules.multicast.MulticastListener
 import org.mechdancer.remote.modules.tcpconnection.ConnectionListener
 import org.mechdancer.remote.modules.tcpconnection.listen
 import org.mechdancer.remote.modules.tcpconnection.say
-import org.mechdancer.remote.presets.RemoteDsl.Companion.remoteHub
+import org.mechdancer.remote.presets.remoteHub
 import org.mechdancer.remote.protocol.RemotePacket
 import org.mechdancer.remote.resources.Command
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import tech.standalonetc.protocol.RobotPacket
 import tech.standalonetc.protocol.packet.CombinedPacket
 import tech.standalonetc.protocol.packet.Packet
@@ -21,8 +22,6 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.Executors
-import java.util.logging.Logger
-import kotlin.coroutines.resume
 
 /**
  * A wrapper of [org.mechdancer.remote.presets.RemoteHub]
@@ -34,13 +33,18 @@ class NetworkTools(
         udpWorkers: Int = 1,
         tcpWorkers: Int = 1,
         onRawPacketReceive: PacketCallback? = null,
+        enableRemoteHubLogger: Boolean = false,
+        loggerConfig: Logger.() -> Unit = {},
         onPacketReceive: PacketCallback? = null
 ) : Closeable {
 
     private val worker = Executors.newFixedThreadPool(udpWorkers + tcpWorkers)
 
     private val remoteHub = remoteHub(name) {
-        newMemberDetected { log("Found $it in LAN.") }
+        if (enableRemoteHubLogger)
+            configLogger {
+                loggerConfig()
+            }
         inAddition { MulticastProcessor() }
         inAddition { ConnectionProcessor() }
     }
@@ -55,25 +59,10 @@ class NetworkTools(
 
     private var packetConversion: PacketConversion<*> = RobotPacket.Conversion
 
-    private val logger = Logger.getLogger(javaClass.name)
+    private val logger = LoggerFactory.getLogger(javaClass).also(loggerConfig)
 
     private var isClosed = false
 
-    /**
-     * Whether print log
-     */
-    var debug = false
-
-
-    private fun log(message: String) {
-        if (debug)
-            logger.info(message)
-    }
-
-    private fun warn(message: String) {
-        if (debug)
-            logger.warning(message)
-    }
 
     init {
         remoteHub.openAllNetworks()
@@ -100,7 +89,7 @@ class NetworkTools(
     fun broadcastPacket(packet: Packet<*>) {
         if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
         remoteHub.broadcast(Cmd, packet.toByteArray())
-        log("Broadcast a packet: $packet.")
+        logger.debug("Broadcast a packet: $packet.")
     }
 
     /**
@@ -109,7 +98,7 @@ class NetworkTools(
     fun sendPacket(packet: Packet<*>): ByteArray? {
         if (isClosed) throw IllegalStateException("NetworkTools has been closed.")
         if (oppositeName == null) throw IllegalStateException("Opposite name can not be null.")
-        log("Send a packet to opposite: $packet")
+        logger.debug("Send a packet to opposite: $packet")
         return remoteHub.connect(oppositeName!!, Cmd) {
             it say packet.toByteArray()
             it.listen()
@@ -157,9 +146,10 @@ class NetworkTools(
      *
      * To ensure that the first packet can be received.
      */
-    suspend fun findOpposite() = suspendCancellableCoroutine<Unit> {
-        while (askOppositeAddress() != null);
-        it.resume(Unit)
+    fun findOpposite(): InetSocketAddress {
+        var result: InetSocketAddress?
+        while (askOppositeAddress().also { result = it } == null);
+        return result!!
     }
 
     /**
@@ -196,11 +186,11 @@ class NetworkTools(
                 null to listener(p)
             } ?: run {
                 if (packet is CombinedPacket) {
-                    log("Unknown combined packet. Unpacking it.")
+                    logger.debug("Unknown combined packet. Unpacking it.")
                     packet.data.map { processPacket(it, raw, listener) }
                     null to null
                 } else {
-                    warn("Failed to wrap packet. Calling raw packet listener.")
+                    logger.debug("Failed to wrap packet. Calling raw packet listener.")
                     raw(packet) to null
                 }
             }
@@ -219,7 +209,7 @@ class NetworkTools(
 
         override fun process(client: String, socket: Socket): Boolean {
             if (oppositeName != null && client != oppositeName) return false
-            log("Received a tcp packet from opposite.")
+            logger.debug("Received a tcp packet from opposite.")
             processPacket(
                     socket.listen().toPrimitivePacket(),
                     tcpPacketReceiveCallback,
@@ -240,7 +230,7 @@ class NetworkTools(
             val (sender, _, payload) = remotePacket
             if (oppositeName != null && sender != oppositeName) return
             GlobalScope.launch {
-                log("Received a udp packet from opposite.")
+                logger.debug("Received a udp packet from opposite.")
                 val packet = payload.toPrimitivePacket()
                 processPacket(packet, {
                     rawPacketReceiveCallbacks.forEach { it(this) }
